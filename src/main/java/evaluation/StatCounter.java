@@ -35,7 +35,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
-import org.jboss.shrinkwrap.resolver.api.maven.Maven;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,6 +46,7 @@ public class StatCounter {
     private final Map<MavenCoordinate, CGPoolStats> cgPoolStats;
     private final Map<MavenCoordinate, List<MergeTimer>> mergeStats;
     private final Map<MavenCoordinate, Long> UCHTime;
+    private final Map<MavenCoordinate, List<SourceStats>> accuracy;
 
 
     public StatCounter() {
@@ -54,6 +54,31 @@ public class StatCounter {
         cgPoolStats = new HashMap<>();
         opalStats = new HashMap<>();
         mergeStats = new HashMap<>();
+        accuracy = new HashMap<>();
+    }
+
+    public void addAccuracy(MavenCoordinate toMerge,
+                            List<SourceStats> acc) {
+        this.accuracy.put(toMerge, acc);
+    }
+
+    public static class SourceStats {
+        final private String source;
+        final private double precision;
+        final private double recall;
+        final private int OPAL;
+        final private int merge;
+        final private int intersect;
+
+        public SourceStats(String source, double precision, double recall, int OPAL,
+                           int merge, int intersect) {
+            this.source = source;
+            this.precision = precision;
+            this.recall = recall;
+            this.OPAL = OPAL;
+            this.merge = merge;
+            this.intersect = intersect;
+        }
     }
 
     public static class MergeTimer {
@@ -201,6 +226,40 @@ public class StatCounter {
 
         writeToCSV(buildOpalCSV(resolvedData), resultPath + "/resultOpal.csv");
         writeToCSV(buildOverallCsv(resolvedData), resultPath + "/Overall.csv");
+        writeToCSV(buildAccuracyCsv(resolvedData), resultPath + "/accuracy.csv");
+    }
+
+    private List<String[]> buildAccuracyCsv(Map<MavenCoordinate, List<MavenCoordinate>> resolvedData) {
+        final List<String[]> dataLines = new ArrayList<>();
+        dataLines.add(getHeaderOf("Accuracy"));
+
+        int counter = 0;
+        for (final var coordAcc : this.accuracy.entrySet()) {
+            final var coord = coordAcc.getKey();
+            final var accValue = coordAcc.getValue();
+            dataLines.addAll(getContentOfAcc(resolvedData, counter, coord, accValue));
+        }
+        return dataLines;
+    }
+
+    private List<String[]> getContentOfAcc(final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData, int counter, final MavenCoordinate coord,
+                                     final List<SourceStats> sourceStats) {
+        List<String[]> result = new ArrayList<>();
+        for (final var sourceStat : sourceStats) {
+            result.add(new String[] {
+                /* number */ String.valueOf(counter),
+                /* coordinate */ coord.getCoordinate(),
+                /* source */ String.valueOf(sourceStat.source),
+                /* precision */ String.valueOf(sourceStat.precision),
+                /* recall */ String.valueOf(sourceStat.recall),
+                /* emptyOPAL */ String.valueOf(sourceStat.OPAL),
+                /* emptyMerge */ String.valueOf(sourceStat.merge),
+                /* emptyBoth */ String.valueOf(sourceStat.intersect),
+                /* dependencies */ toString(resolvedData.get(coord))
+            });
+            counter++;
+        }
+        return result;
     }
 
     private List<String[]> buildOpalCSV(
@@ -344,6 +403,10 @@ public class StatCounter {
                 "internalNodes", "externalNodes",
                 "internalEdges", "externalEdges"
             };
+
+        } else if (CSVName.equals("Accuracy")) {
+            return new String[] {"number", "coordinate", "source", "precision", "recall",
+                "OPAL", "Merge", "intersection", "dependencies"};
         }
 
         //Merge
@@ -428,6 +491,14 @@ public class StatCounter {
             data.stream()
                 .map(StatCounter::convertToCSV)
                 .forEach(pw::println);
+            for (String[] datum : data) {
+                for (String s : datum) {
+                    if (s.contains("/org.apache.http.impl.io/HttpRequestWriter.writeHeadLine(/org" +
+                        ".apache.http/HttpRequest)/java.lang/VoidType")) {
+                        System.out.println();
+                    }
+                }
+            }
         }
     }
 

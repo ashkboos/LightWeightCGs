@@ -18,6 +18,9 @@
 
 package evaluation;
 
+import static evaluation.StitchingEdgeTest.compareMergeOPAL;
+import static evaluation.StitchingEdgeTest.groupBySource;
+
 import ch.qos.logback.classic.Level;
 
 import eu.fasten.analyzer.javacgopal.Main;
@@ -25,7 +28,6 @@ import eu.fasten.analyzer.javacgopal.Main;
 import eu.fasten.analyzer.javacgopal.data.MavenCoordinate;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -45,6 +47,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
 import org.jboss.shrinkwrap.resolver.api.maven.Maven;
 import org.jooq.tools.csv.CSVReader;
 import org.json.JSONObject;
@@ -121,11 +124,7 @@ public class Evaluator {
             logger.info("Number of redundant packages is less than threshold #{}", threshold);
 
         } else {
-//            final var cgPool = buildUpCGPool(resolvedData, statCounter, uniquesCommons.getLeft());
-//            measureMergeStats(resolvedData, cgPool, statCounter);
-            cgPoolAndMerge(resolvedData, statCounter);
-            measureOPALStats(resolvedData, statCounter);
-
+            runOPALandMerge(resolvedData, statCounter);
 
             statCounter.concludeMerge(resolvedData, outPath);
             statCounter.concludeAll(resolvedData, outPath);
@@ -133,15 +132,16 @@ public class Evaluator {
         }
     }
 
-    private static void cgPoolAndMerge(final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
-                                       final StatCounter statCounter) {
+    private static void runOPALandMerge(final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
+                                        final StatCounter statCounter) {
         final Map<MavenCoordinate, Set<MavenCoordinate>> remainedDependents = getDependents(resolvedData);
         final Map<MavenCoordinate, ExtendedRevisionJavaCallGraph> cgPool = new HashMap<>();
-        ProgressBar pb = new ProgressBar("Measuring merge and cg pool stats",
+        ProgressBar pb = new ProgressBar("Measuring stats",
             resolvedData.entrySet().size());
         pb.start();
 
-        for (final var toMerge : resolvedData.keySet()) {
+        for (final var row : resolvedData.entrySet()) {
+            final var toMerge = row.getKey();
             for (final var dep : resolvedData.get(toMerge)) {
                 if (!cgPool.containsKey(dep)) {
                     addToCGPool(statCounter,cgPool,dep);
@@ -151,18 +151,71 @@ public class Evaluator {
             logger.info("artifact: {}, dependencies: {}", toMerge.getCoordinate(),
                 resolvedData.get(toMerge).stream().map(MavenCoordinate::getCoordinate).collect(Collectors.toList()));
 
-            mergeArtifact(cgPool, statCounter, resolvedData.get(toMerge), toMerge);
+            final var merge = mergeArtifact(cgPool, statCounter, resolvedData.get(toMerge),
+                toMerge);
             pb.step();
             for (final var dep : resolvedData.get(toMerge)) {
-                if (remainedDependents.get(dep).isEmpty()) {
-                    remainedDependents.get(dep).remove(toMerge);
-                    cgPool.remove(dep);
-                    System.gc();
+                if ( remainedDependents.get(dep) != null) {
+                    if (remainedDependents.get(dep).isEmpty()) {
+                        remainedDependents.get(dep).remove(toMerge);
+                        cgPool.remove(dep);
+                        System.gc();
+                    }
                 }
             }
+            final var opal = generateForOPAL(statCounter, row);
+            statCounter.addAccuracy(toMerge,
+                calcPrecisionRecall(removeVersions(groupBySource(compareMergeOPAL(merge, opal)))));
+            System.gc();
         }
         pb.stop();
 
+    }
+    private static List<StatCounter.SourceStats> calcPrecisionRecall(Map<String, Map<String, List<String>>> edges){
+        final var opal = edges.get("opalInternals");
+        final var merge = edges.get("mergeInternals");
+        final var allSources = new HashSet<String>();
+        allSources.addAll(opal.keySet());
+        allSources.addAll(merge.keySet());
+        List<StatCounter.SourceStats> result = new ArrayList<>();
+        for (final var source : allSources) {
+
+            final var opalTargets = new HashSet<>(opal.getOrDefault(source,
+                new ArrayList<>()));
+            final var mergeTargets = new HashSet<>(merge.getOrDefault(source, new ArrayList<>()));
+            final var intersect = intersect(opalTargets, mergeTargets);
+            final var mergeSize = mergeTargets.size();
+            final var opalSize = opalTargets.size();
+            final var intersectSize = intersect.size();
+
+            final var precision = mergeSize == 0 ? 1 : (double) intersectSize/mergeSize;
+            final var recall = opalSize == 0 ? 1 : (double) intersectSize/opalSize;
+
+            result.add(new StatCounter.SourceStats(source, precision, recall, opalSize, mergeSize
+                ,intersectSize));
+        }
+        return result;
+    }
+
+    private static Map<String, Map<String, List<String>>> removeVersions(Map<String, Map<String, List<String>>> edges) {
+        for (var targets : edges.get("mergeInternals").entrySet()) {
+            final List<String> removedVersion = new ArrayList<>();
+            for (String target : targets.getValue()) {
+                removedVersion.add(target.replace(target.split("/")[2],"").replace("//",""));
+            }
+            targets.setValue(removedVersion);
+        }
+        return edges;
+    }
+
+    private static Set<String> intersect(final Set<String> first,
+                                         final Set<String> second) {
+        final var temp1 = new ArrayList<>(first);
+        final var temp2 = new ArrayList<>(second);
+        return temp1.stream()
+            .distinct()
+            .filter(temp2::contains)
+            .collect(Collectors.toSet());
     }
 
     private static Map<MavenCoordinate, Set<MavenCoordinate>> getDependents(
@@ -277,25 +330,13 @@ public class Evaluator {
         return false;
     }
 
-    private static void measureMergeStats(
-        final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
-        final Map<MavenCoordinate, ExtendedRevisionJavaCallGraph> cgPool,
-        final StatCounter statCounter){
-        ProgressBar pb = new ProgressBar("Measuring merge stats", resolvedData.entrySet().size());
-        pb.start();
 
-        for (final var  row : resolvedData.entrySet()) {
-
-            mergeArtifact(cgPool, statCounter, row.getValue(), row.getKey());
-            pb.step();
-        }
-        pb.stop();
-    }
-
-    private static void mergeArtifact(final Map<MavenCoordinate, ExtendedRevisionJavaCallGraph> cgPool,
+    private static List<ExtendedRevisionJavaCallGraph> mergeArtifact(final Map<MavenCoordinate,
+        ExtendedRevisionJavaCallGraph> cgPool,
                                       final StatCounter statCounter,
                                       final List<MavenCoordinate> deps,
                                       final MavenCoordinate artifact) {
+        final List<ExtendedRevisionJavaCallGraph> result = new ArrayList<>();
         final var rcgs = deps.stream().map(cgPool::get)
             .filter(Objects::nonNull) // get rid of null values
             .collect(Collectors.toList());
@@ -321,6 +362,8 @@ public class Evaluator {
                     .addMerge(artifact, dep, skipRevision(dep, deps),
                         (long) times.stream().mapToDouble(a -> a).average().getAsDouble(),
                         new StatCounter.GraphStats(rcg));
+
+                result.add(rcg);
             }else {
                 statCounter
                     .addMerge(artifact, dep, skipRevision(dep, deps),
@@ -328,6 +371,7 @@ public class Evaluator {
                         new StatCounter.GraphStats());
             }
         }
+        return result;
     }
 
     private static Optional<List<org.jboss.shrinkwrap.resolver.api.maven.coordinate.MavenCoordinate>> resolve(
@@ -361,50 +405,46 @@ public class Evaluator {
             .collect(Collectors.toList());
     }
 
-    private static void measureOPALStats(
-        final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
-        final StatCounter statCounter) {
-        ProgressBar pb = new ProgressBar("Measuring opal stats", resolvedData.size());
-        pb.start();
 
-        for (final var row : resolvedData.entrySet()) {
-            try {
-                    final var tempDir = downloadToDir(row.getValue());
-                    logger.info("\n##################### \n Deps of {} downloaded to {}, Opal is " +
-                            "generating ...", row.getValue().get(0).getCoordinate(),
-                        tempDir.getAbsolutePath());
-                CallGraphConstructor opalCg = null;
+    private static ExtendedRevisionJavaCallGraph generateForOPAL(StatCounter statCounter,
+                                        Map.Entry<MavenCoordinate, List<MavenCoordinate>> row) {
+        ExtendedRevisionJavaCallGraph rcg = null;
+        try {
+                final var tempDir = downloadToDir(row.getValue());
+                logger.info("\n##################### \n Deps of {} downloaded to {}, Opal is " +
+                        "generating ...", row.getValue().get(0).getCoordinate(),
+                    tempDir.getAbsolutePath());
+            CallGraphConstructor opalCg = null;
 
-                final var times = new ArrayList<Long>();
-                for (int i = 0; i < warmUp + iterations ; i++) {
-                    if (i > warmUp) {
-                        final long startTime = System.currentTimeMillis();
-                        opalCg = new CallGraphConstructor(tempDir, "", "CHA");
-                        times.add(System.currentTimeMillis() - startTime);
-                    }
+            final var times = new ArrayList<Long>();
+            for (int i = 0; i < warmUp + iterations ; i++) {
+                if (i > warmUp) {
+                    final long startTime = System.currentTimeMillis();
+                    opalCg = new CallGraphConstructor(tempDir, "", "CHA");
+                    times.add(System.currentTimeMillis() - startTime);
                 }
-
-                    final var cg = new PartialCallGraph(opalCg);
-                    final var rcg = ExtendedRevisionJavaCallGraph.extendedBuilder()
-                        .graph(cg.getGraph())
-                        .classHierarchy(cg.getClassHierarchy())
-                        .nodeCount(cg.getNodeCount())
-                        .build();
-
-                FileUtils.deleteDirectory(tempDir);
-
-                    statCounter.addOPAL(row.getKey(),
-                        (long) times.stream().mapToDouble(a -> a).average().getAsDouble(), rcg);
-
-                    pb.step();
-                System.gc();
-            } catch (Exception e) {
-                logger.warn("Exception occurred found!", e);
-                statCounter.addOPAL(row.getKey(), new StatCounter.OpalStats(0l,
-                    new StatCounter.GraphStats()));
             }
+
+                final var cg = new PartialCallGraph(opalCg);
+                rcg = ExtendedRevisionJavaCallGraph.extendedBuilder()
+                    .graph(cg.getGraph())
+                    .classHierarchy(cg.getClassHierarchy())
+                    .nodeCount(cg.getNodeCount())
+                    .build();
+
+            FileUtils.deleteDirectory(tempDir);
+
+                statCounter.addOPAL(row.getKey(),
+                    (long) times.stream().mapToDouble(a -> a).average().getAsDouble(), rcg);
+
+            System.gc();
+        } catch (Exception e) {
+            logger.warn("Exception occurred found!", e);
+            statCounter.addOPAL(row.getKey(), new StatCounter.OpalStats(0l,
+                new StatCounter.GraphStats()));
         }
-        pb.stop();
+        return rcg;
+
     }
 
     public static File downloadToDir(final List<MavenCoordinate> mavenCoordinates)
