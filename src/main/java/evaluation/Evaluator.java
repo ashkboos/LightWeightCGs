@@ -136,15 +136,14 @@ public class Evaluator {
                                         final StatCounter statCounter) {
         final Map<MavenCoordinate, Set<MavenCoordinate>> remainedDependents = getDependents(resolvedData);
         final Map<MavenCoordinate, ExtendedRevisionJavaCallGraph> cgPool = new HashMap<>();
-        ProgressBar pb = new ProgressBar("Measuring stats",
-            resolvedData.entrySet().size());
+        ProgressBar pb = new ProgressBar("Measuring stats", resolvedData.entrySet().size());
         pb.start();
 
         for (final var row : resolvedData.entrySet()) {
             final var toMerge = row.getKey();
             for (final var dep : resolvedData.get(toMerge)) {
                 if (!cgPool.containsKey(dep)) {
-                    addToCGPool(statCounter,cgPool,dep);
+                    addToCGPool(statCounter, cgPool, dep);
                 }
             }
 
@@ -287,26 +286,17 @@ public class Evaluator {
         pb.start();
 
         final var result = new HashMap<MavenCoordinate, List<MavenCoordinate>>();
-
-        for (int i = 0, dataSetSize = dataSet.size(); i < dataSetSize; i = i+2) {
-            String coord1 = dataSet.get(i);
-            String coord2 = dataSet.get(i+1);
+        for (final var coord1 : dataSet) {
             final var deps1 = resolve(coord1);
-            final var deps2 = resolve(coord2);
-            if (deps1.isPresent() && deps2.isPresent()) {
-                if(!hasScala(deps1) && !hasScala(deps2)) {
-
+            if (deps1.isPresent()) {
+                if(!hasScala(deps1)) {
+                    if(deps1.get().size() >1){
                     deps1.ifPresent(mavenCoordinates -> result
                         .put(MavenCoordinate
                                 .fromString(coord1,
                                     mavenCoordinates.get(0).getPackaging().getClassifier()),
                             convertToFastenCoordinates(mavenCoordinates)));
-
-                    deps2.ifPresent(mavenCoordinates -> result
-                        .put(MavenCoordinate
-                                .fromString(coord2,
-                                    mavenCoordinates.get(0).getPackaging().getClassifier()),
-                            convertToFastenCoordinates(mavenCoordinates)));
+                    }
                 }
             }
 
@@ -425,7 +415,7 @@ public class Evaluator {
                 }
             }
 
-                final var cg = new PartialCallGraph(opalCg);
+                final var cg = new PartialCallGraph(opalCg, false);
                 rcg = ExtendedRevisionJavaCallGraph.extendedBuilder()
                     .graph(cg.getGraph())
                     .classHierarchy(cg.getClassHierarchy())
@@ -496,7 +486,7 @@ public class Evaluator {
 
                 final long startTime = System.currentTimeMillis();
                 final var opalCG = new CallGraphConstructor(file, "", "CHA");
-                final var cg = new PartialCallGraph(opalCG);
+                final var cg = new PartialCallGraph(opalCG, true);
                 final var rcg = ExtendedRevisionJavaCallGraph.extendedBuilder()
                     .graph(cg.getGraph())
                     .product(dep.getProduct())

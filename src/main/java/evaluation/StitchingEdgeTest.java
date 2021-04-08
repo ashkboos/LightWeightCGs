@@ -25,7 +25,8 @@ public class StitchingEdgeTest {
 
     @BeforeAll
     public static void setUp() throws IOException {
-        resolvedData = Evaluator.readResolvedDataCSV("src/main/java/evaluation/results/inputMvnData/highly.connected3.resolved.csv");
+        resolvedData = Evaluator.readResolvedDataCSV("src/main/java/evaluation/results" +
+            "/inputMvnData/highly.connected1.resolved.csv");
     }
 
     @Test
