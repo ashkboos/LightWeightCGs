@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>org.example</groupId>
+    <artifactId>LightWeightCGs</artifactId>
+    <version>1.0-SNAPSHOT</version>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.plugin.version>3.8.0</maven.compiler.plugin.version>
+        <checkstyle.version>3.1.1</checkstyle.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>eu.fasten.analyzer</groupId>
+            <artifactId>javacg-opal</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>eu.fasten</groupId>
+            <artifactId>core</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>me.tongfei</groupId>
+            <artifactId>progressbar</artifactId>
+            <version>0.6.0</version>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13-beta-1</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>RELEASE</version>
+            <scope>compile</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <testSourceDirectory>${project.basedir}/src/test/java/</testSourceDirectory>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.2.1</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <minimizeJar>false</minimizeJar>
+                            <keepDependenciesWithProvidedScope>false</keepDependenciesWithProvidedScope>
+                            <artifactSet>
+                                <excludes>
+                                    <!--                                    <exclude>org.slf4j:slf4j-simple:*</exclude>-->
+                                    <!--                                    <exclude>org.slf4j:slf4j-api:*</exclude>-->
+                                    <exclude>org.rocksdb:*</exclude>
+                                    <exclude>org.jooq:*</exclude>
+                                    <exclude>it.unimi.dsi:webgraph-big:*</exclude>
+                                    <exclude>it.unimi.dsi:webgraph:*</exclude>
+                                    <exclude>it.unimi.dsi:sux4j:*</exclude>
+                                    <exclude>org.postgresql:*</exclude>
+                                    <exclude>com.github.zafarkhaja:*</exclude>
+                                    <exlude>org.apache.maven:*</exlude>
+                                    <exlude>org.apache.maven.resolver:*</exlude>
+                                    <exclude>org.apache.maven.wagon:*</exclude>
+                                </excludes>
+                            </artifactSet>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <manifestEntries>
+                                        <Main-Class>evaluation.Evaluator</Main-Class>
+                                        <X-Compile-Source-JDK>11</X-Compile-Source-JDK>
+                                        <X-Compile-Target-JDK>11</X-Compile-Target-JDK>
+                                        <Plugin-Class>evaluation</Plugin-Class>
+                                        <Plugin-Id>eval</Plugin-Id>
+                                        <Plugin-Version>0.0.1</Plugin-Version>
+                                        <Plugin-Description>
+                                            Given a Maven coordinate or a file,
+                                            generates call graphs and puts them into a Kafka topic
+                                        </Plugin-Description>
+                                        <Plugin-License>Apache License 2.0</Plugin-License>
+                                    </manifestEntries>
+                                </transformer>
+                            </transformers>
+                            <!-- Note that this works when maven is ran in the root directory of the project  -->
+                            <outputDirectory>${session.executionRootDirectory}/runnable/</outputDirectory>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <shadedClassifierName>with-dependencies</shadedClassifierName>
+                        </configuration>
+                    </execution>
+                </executions>
+                <configuration>
+                    <filters>
+                        <filter>
+                            <artifact>*:*</artifact>
+                            <excludes>
+                                <exclude>module-info.class</exclude>
+                                <exclude>META-INF/*.SF</exclude>
+                                <exclude>META-INF/*.DSA</exclude>
+                                <exclude>META-INF/*.RSA</exclude>
+                                <exclude>eu/fasten/core/plugins/*</exclude>
+                            </excludes>
+                        </filter>
+                        <filter>
+                            <artifact>org.apache.kafka:*</artifact>
+                            <excludes>
+                                <exclude>org/apache/kafka/**</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.8.1</version>
+                <configuration>
+                    <annotationProcessors>
+                        <annotationProcessor>org.pf4j.processor.ExtensionAnnotationProcessor</annotationProcessor>
+                    </annotationProcessors>
+                    <source>11</source>
+                    <target>11</target>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
