@@ -163,8 +163,11 @@ public class Evaluator {
                 }
             }
             final var opal = generateForOPAL(statCounter, row);
-            statCounter.addAccuracy(toMerge,
-                calcPrecisionRecall(removeVersions(groupBySource(compareMergeOPAL(merge, opal)))));
+            if(opal!= null && merge != null ) {
+                statCounter.addAccuracy(toMerge,
+                    calcPrecisionRecall(
+                        removeVersions(groupBySource(compareMergeOPAL(merge, opal)))));
+            }
             System.gc();
         }
         pb.stop();
