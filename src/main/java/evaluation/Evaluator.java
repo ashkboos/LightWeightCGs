@@ -27,7 +27,10 @@ import eu.fasten.analyzer.javacgopal.Main;
 
 import eu.fasten.analyzer.javacgopal.data.MavenCoordinate;
 
+import eu.fasten.core.data.JSONUtils;
+import eu.fasten.core.merge.CallGraphUtils;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -47,10 +50,10 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.commons.lang3.tuple.Triple;
 import org.jboss.shrinkwrap.resolver.api.maven.Maven;
 import org.jooq.tools.csv.CSVReader;
 import org.json.JSONObject;
+import org.json.JSONTokener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,7 +81,196 @@ public class Evaluator {
             final var resolvedData = resolveAll(dropTheHeader(readCSVColumn(args[1], 0)));
             StatCounter.writeToCSV(buildDataCSV(resolvedData), args[2]);
             logger.info("Wrote resolved data into file successfully!");
+        }else if (args[0].equals("--opal")){
+            writeOpalToFolder(args[1], args[2]);
+        }else if(args[0].equals("--merge")){
+            writeMergeToFolder(args[1], args[2]);
+        }else if (args[0].equals("--fromFiles")){
+            analyzeDir(args[1], args[2]);
         }
+
+    }
+
+    private static void analyzeDir(final String rootPath, final String outPath)
+        throws IOException, NoSuchFieldException, IllegalAccessException {
+        final var statCounter = new StatCounter();
+        Map<MavenCoordinate, List<MavenCoordinate>> depTree = new HashMap<>();
+        for (final var pckg : Objects.requireNonNull(new File(rootPath).listFiles())) {
+            final var opal = getFile(pckg, "opal")[0];
+            final var merge = getFile(pckg, "merge")[0];
+            final var opalCG = getOpalCG(opal);
+            final var depEntry = updateStatCounter(merge, opal, statCounter);
+            depTree.put(depEntry.getKey(), depEntry.getValue());
+            final var mergedCG = getMergedCGs(merge);
+            if( !mergedCG.isEmpty() && opalCG != null ) {
+                statCounter.addAccuracy(depEntry.getKey(),
+                    calcPrecisionRecall(
+                        removeVersions(groupBySource(compareMergeOPAL(mergedCG, opalCG)))));
+            }
+        }
+        statCounter.concludeMerge(outPath);
+        statCounter.concludeOpal(depTree, outPath);
+        statCounter.concludeLogs(outPath);
+        statCounter.concludeAll(depTree, outPath);
+
+    }
+
+    private static Map.Entry<MavenCoordinate, List<MavenCoordinate>> updateStatCounter(final File merge, final File opal,
+                                                                                       final StatCounter statCounter) {
+
+        final var resultOpal = getCSV(opal.getAbsolutePath()+"/resultOpal.csv");
+        final var opalLog = getFile(opal, "log");
+        final var cgPool = getCSV(merge.getAbsolutePath()+ "/CGPool.csv");
+        final var resultMerge = getCSV(merge.getAbsolutePath()+"/Merge.csv");
+        final var mergeLog = getFile(merge, "log");
+        final var depEntry = addOpalToStatCounter(resultOpal.get(0), statCounter);
+        addMergeToStatCounter(resultMerge, statCounter);
+        addCGPoolToStatCounter(cgPool, statCounter);
+        statCounter.addLog(opalLog, mergeLog, depEntry.getKey());
+        return depEntry;
+    }
+
+
+    private static void addCGPoolToStatCounter(final List<Map<String, String>> cgPool,
+                                               StatCounter statCounter) {
+        for (final var cg : cgPool) {
+            statCounter.addNewCGtoPool(MavenCoordinate.fromString(cg.get("coordinate"), "jar"),
+                Long.parseLong(cg.get("isolatedRevisionTime")),
+                    new StatCounter.GraphStats(Integer.parseInt(cg.get("internalNodes")),
+                        Integer.parseInt(cg.get("externalNodes")),
+                        0,
+                        Integer.parseInt(cg.get("internalEdges")),
+                        Integer.parseInt(cg.get("externalEdges")),
+                        0));
+        }
+    }
+
+    private static void addMergeToStatCounter(final List<Map<String, String>> resultMerge,
+                                              StatCounter statCounter) {
+        for (final var merge : resultMerge) {
+            List<MavenCoordinate> deps = new ArrayList<>();
+            for (final var dep : merge.get("dependencies").split(";")) {
+                deps.add(MavenCoordinate.fromString(dep, "jar"));
+            }
+            statCounter.addMerge(MavenCoordinate.fromString(merge.get("rootCoordinate"), "jar"),
+                MavenCoordinate.fromString(merge.get("artifact"), "jar"),
+                deps, Long.parseLong(merge.get("mergeTime")),
+                new StatCounter.GraphStats(Integer.parseInt(merge.get("internalNodes")),
+                    Integer.parseInt(merge.get("externalNodes")),
+                    Integer.parseInt(merge.get("resolvedNodes")),
+                    Integer.parseInt(merge.get("internalEdges")),
+                    Integer.parseInt(merge.get("externalEdges")),
+                    Integer.parseInt(merge.get("resolvedEdges"))));
+
+        }
+
+    }
+
+    private static Map.Entry<MavenCoordinate, List<MavenCoordinate>> addOpalToStatCounter(final Map<String, String> resultOpal,
+                                                                                    StatCounter statCounter) {
+        final var coord = MavenCoordinate.fromString(resultOpal.get("coordinate"), "jar");
+            final var opalStats = new StatCounter.OpalStats(Long.parseLong(resultOpal.get("opalTime")),
+                new StatCounter.GraphStats(Integer.parseInt(resultOpal.get("internalNodes")),
+                    Integer.parseInt(resultOpal.get("externalNodes")),
+                    0,
+                    Integer.parseInt(resultOpal.get("internalEdges")),
+                    Integer.parseInt(resultOpal.get("externalEdges")),
+                    0));
+            statCounter.addOPAL(coord, opalStats);
+        List<MavenCoordinate> deps = new ArrayList<>();
+        for (final var dep : resultOpal.get("dependencies").split(";")) {
+            deps.add(MavenCoordinate.fromString(dep, "jar"));
+        }
+        return Map.entry(coord, deps);
+    }
+
+    private static List<Map<String, String>> getCSV(final String inputPath) {
+        List<Map<String, String>> result = new ArrayList<>();
+        try (var csvReader = new CSVReader(new FileReader(inputPath), ',', '\'')) {
+            String[] values;
+            boolean firstRow = true;
+            List<String> header = new ArrayList<>();
+            while ((values = csvReader.readNext()) != null) {
+                Map<String, String> row = new HashMap<>();
+                for (int i = 0; i < values.length; i++) {
+                    String value = values[i];
+                    if (firstRow) {
+                        header.add(value);
+                    } else {
+                        row.put(header.get(i), value);
+                    }
+                }
+                if (!firstRow) {
+                    result.add(row);
+                }
+                firstRow = false;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+
+    private static ExtendedRevisionJavaCallGraph getOpalCG(final File opalDir) throws FileNotFoundException {
+        final var opalFile = getFile(opalDir, "cg.json");
+        ExtendedRevisionJavaCallGraph opalCG = null;
+        if (opalFile != null) {
+            opalCG = getRCG(opalFile[0]);
+        }
+        return opalCG;
+    }
+
+    private static File[] getFile(final File opalDir, final String fileName) {
+        return opalDir.listFiles((dir, name) -> name.toLowerCase().equals(
+            fileName));
+    }
+
+    private static List<ExtendedRevisionJavaCallGraph> getMergedCGs(final File mergeFiles) throws FileNotFoundException {
+        List<ExtendedRevisionJavaCallGraph> result = new ArrayList<>();
+        final var allCGs = mergeFiles.listFiles((dir, name) -> name.toLowerCase().endsWith(
+            "json"));
+        if (allCGs != null) {
+            for (final var serializedCGFile : allCGs) {
+                result.add(getRCG(serializedCGFile));
+            }
+        }
+        return result;
+    }
+
+    private static ExtendedRevisionJavaCallGraph getRCG(final File serializedCGFile)
+        throws FileNotFoundException {
+        JSONTokener tokener = new JSONTokener(new FileReader(serializedCGFile));
+        return new ExtendedRevisionJavaCallGraph(new JSONObject(tokener));
+    }
+
+    private static void writeMergeToFolder(final String row, final String path) throws IOException {
+        final var statCounter = new StatCounter();
+        final var coords = getCoordinates(row);
+        final var rcgs = mergeRecord(Map.of(coords.getKey(), coords.getValue()), statCounter,
+            new HashMap<>(), coords.getKey());
+        for (int i = 0; i < rcgs.size(); i++) {
+            ExtendedRevisionJavaCallGraph rcg = rcgs.get(i);
+            CallGraphUtils.writeToFile(path, JSONUtils.toJSONString(rcg),"/" + i+ ".json");
+        }
+        statCounter.concludeMerge(path);
+    }
+
+    private static void writeOpalToFolder(final String row, final String path) throws IOException {
+        final var statCounter = new StatCounter();
+        final var coords = getCoordinates(row);
+        final var rcg = generateForOPAL(statCounter, coords);
+        CallGraphUtils.writeToFile(path+"/cg.json", JSONUtils.toJSONString(rcg), "");
+        statCounter.concludeOpal(Map.of(coords.getKey(), coords.getValue()), path);
+    }
+
+    private static Map.Entry<MavenCoordinate, List<MavenCoordinate>> getCoordinates(String row) {
+        final var splitedRow = row.split(",");
+        List<MavenCoordinate> deps = new ArrayList<>();
+        for (String coord : splitedRow[2].split(";")) {
+            deps.add(MavenCoordinate.fromString(coord,"jar"));
+        }
+        return Map.entry(MavenCoordinate.fromString(splitedRow[1], "jar"), deps);
     }
 
     public static void generateAllFeatures(final File testCasesDirectory) throws IOException {
@@ -112,7 +304,7 @@ public class Evaluator {
         final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
         final String outPath,
         final int threshold)
-        throws IOException, NoSuchFieldException, IllegalAccessException, OPALException {
+        throws IOException, NoSuchFieldException, IllegalAccessException {
 
         final var statCounter = new StatCounter();
 
@@ -126,7 +318,8 @@ public class Evaluator {
         } else {
             runOPALandMerge(resolvedData, statCounter);
 
-            statCounter.concludeMerge(resolvedData, outPath);
+            statCounter.concludeMerge(outPath);
+            statCounter.concludeOpal(resolvedData, outPath);
             statCounter.concludeAll(resolvedData, outPath);
             logger.info("Wrote results of evaluation into file successfully!");
         }
@@ -141,17 +334,8 @@ public class Evaluator {
 
         for (final var row : resolvedData.entrySet()) {
             final var toMerge = row.getKey();
-            for (final var dep : resolvedData.get(toMerge)) {
-                if (!cgPool.containsKey(dep)) {
-                    addToCGPool(statCounter, cgPool, dep);
-                }
-            }
-
-            logger.info("artifact: {}, dependencies: {}", toMerge.getCoordinate(),
-                resolvedData.get(toMerge).stream().map(MavenCoordinate::getCoordinate).collect(Collectors.toList()));
-
-            final var merge = mergeArtifact(cgPool, statCounter, resolvedData.get(toMerge),
-                toMerge);
+            final List<ExtendedRevisionJavaCallGraph> merge =
+                mergeRecord(resolvedData, statCounter, cgPool, toMerge);
             pb.step();
             for (final var dep : resolvedData.get(toMerge)) {
                 if ( remainedDependents.get(dep) != null) {
@@ -173,6 +357,24 @@ public class Evaluator {
         pb.stop();
 
     }
+
+    private static List<ExtendedRevisionJavaCallGraph> mergeRecord(
+        Map<MavenCoordinate, List<MavenCoordinate>> resolvedData, StatCounter statCounter,
+        Map<MavenCoordinate, ExtendedRevisionJavaCallGraph> cgPool, MavenCoordinate toMerge) {
+        for (final var dep : resolvedData.get(toMerge)) {
+            if (!cgPool.containsKey(dep)) {
+                addToCGPool(statCounter, cgPool, dep);
+            }
+        }
+
+        logger.info("artifact: {}, dependencies: {}", toMerge.getCoordinate(),
+            resolvedData.get(toMerge).stream().map(MavenCoordinate::getCoordinate).collect(
+                Collectors.toList()));
+
+        return mergeArtifact(cgPool, statCounter, resolvedData.get(toMerge),
+            toMerge);
+    }
+
     private static List<StatCounter.SourceStats> calcPrecisionRecall(Map<String, Map<String, List<String>>> edges){
         final var opal = edges.get("opalInternals");
         final var merge = edges.get("mergeInternals");
@@ -292,7 +494,7 @@ public class Evaluator {
         for (final var coord1 : dataSet) {
             final var deps1 = resolve(coord1);
             if (deps1.isPresent()) {
-                if(!hasScala(deps1)) {
+//                if(!hasScala(deps1)) {
                     if(deps1.get().size() >1){
                     deps1.ifPresent(mavenCoordinates -> result
                         .put(MavenCoordinate
@@ -300,7 +502,7 @@ public class Evaluator {
                                     mavenCoordinates.get(0).getPackaging().getClassifier()),
                             convertToFastenCoordinates(mavenCoordinates)));
                     }
-                }
+//                }
             }
 
             if (result.size() == 100) {

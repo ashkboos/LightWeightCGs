@@ -23,11 +23,14 @@ import eu.fasten.core.data.ExtendedRevisionJavaCallGraph;
 import eu.fasten.core.data.JavaScope;
 import eu.fasten.core.data.JavaType;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.RandomAccessFile;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +50,7 @@ public class StatCounter {
     private final Map<MavenCoordinate, List<MergeTimer>> mergeStats;
     private final Map<MavenCoordinate, Long> UCHTime;
     private final Map<MavenCoordinate, List<SourceStats>> accuracy;
+    private final Map<MavenCoordinate, Pair<String, String>> logs;
 
 
     public StatCounter() {
@@ -55,11 +59,70 @@ public class StatCounter {
         opalStats = new HashMap<>();
         mergeStats = new HashMap<>();
         accuracy = new HashMap<>();
+        logs = new HashMap<>();
     }
 
     public void addAccuracy(MavenCoordinate toMerge,
                             List<SourceStats> acc) {
         this.accuracy.put(toMerge, acc);
+    }
+
+    public void addLog(final File[] opalLog, final File[] mergeLog,
+                       MavenCoordinate coord) {
+        String opalLogString = "", mergeLoString = "";
+        if (opalLog != null) {
+         opalLogString = readFromLast(opalLog[0], 20);
+        }
+        if (mergeLog != null){
+            mergeLoString = readFromLast(mergeLog[0], 20);
+        }
+        this.logs.put(coord, ImmutablePair.of(opalLogString, mergeLoString));
+    }
+
+    public String readFromLast(File file, int lines){
+        List<String> result = new ArrayList<>();
+        int readLines = 0;
+        StringBuilder builder = new StringBuilder();
+        RandomAccessFile randomAccessFile = null;
+        try {
+            randomAccessFile = new RandomAccessFile(file, "r");
+            long fileLength = file.length() - 1;
+            // Set the pointer at the last of the file
+            randomAccessFile.seek(fileLength);
+            for(long pointer = fileLength; pointer >= 0; pointer--){
+                randomAccessFile.seek(pointer);
+                char c;
+                // read from the last one char at the time
+                c = (char)randomAccessFile.read();
+                // break when end of the line
+                if(c == '\n'){
+                    readLines++;
+                    if(readLines == lines)
+                        break;
+                }
+                builder.append(c);
+            }
+            // Since line is read from the last so it
+            // is in reverse so use reverse method to make it right
+            builder.reverse();
+            result.add(builder.toString());
+//            System.out.println("Line - " + builder.toString());
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+        }finally{
+            if(randomAccessFile != null){
+                try {
+                    randomAccessFile.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        Collections.reverse(result);
+        return String.join("\n", result);
     }
 
     public static class SourceStats {
@@ -101,6 +164,17 @@ public class StatCounter {
         final private Integer internalNodes, externalNodes, resolvedNodes, internalEdges,
             externalEdges, resolvedEdges;
 
+        public GraphStats(Integer internalNodes, Integer externalNodes,
+                          Integer resolvedNodes, Integer internalEdges,
+                          Integer externalEdges, Integer resolvedEdges) {
+            this.internalNodes = internalNodes;
+            this.externalNodes = externalNodes;
+            this.resolvedNodes = resolvedNodes;
+            this.internalEdges = internalEdges;
+            this.externalEdges = externalEdges;
+            this.resolvedEdges = resolvedEdges;
+        }
+
         public GraphStats(final ExtendedRevisionJavaCallGraph rcg) {
             this.internalEdges = rcg.getGraph().getInternalCalls().size();
             this.externalEdges = rcg.getGraph().getExternalCalls().size();
@@ -124,6 +198,7 @@ public class StatCounter {
             this.externalNodes = 0;
             this.resolvedNodes = 0;
         }
+
 
         private int countMethods(final Collection<JavaType> types) {
             int result = 0;
@@ -191,7 +266,7 @@ public class StatCounter {
         }
     }
 
-    public void addOPAL(final MavenCoordinate coord, final long time,
+    public void addOPAL(MavenCoordinate coord, final long time,
                         final ExtendedRevisionJavaCallGraph rcg) {
         if (opalStats.containsKey(coord)) {
             logger.warn("The coordinate was already generated by OPAL {}", coord);
@@ -212,19 +287,48 @@ public class StatCounter {
         mergeStats.put(rootCoord, merge);
     }
 
-    public void concludeMerge(final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
-                              final String resultPath)
+    public void concludeMerge(final String resultPath)
         throws IOException{
 
         writeToCSV(buildCGPoolCSV(), resultPath + "/CGPool.csv");
         writeToCSV(buildMergeCSV(), resultPath + "/Merge.csv");
+    }
+    public void concludeOpal(final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
+                            final String resultPath) throws IOException{
+
+        writeToCSV(buildOpalCSV(resolvedData), resultPath + "/resultOpal.csv");
+    }
+
+    public void concludeLogs(final String outPath)
+        throws IOException, NoSuchFieldException, IllegalAccessException {
+        writeToCSV(buildLogCsv(), outPath + "/Logs.csv");
+    }
+
+    private List<String[]> buildLogCsv()
+            throws NoSuchFieldException, IllegalAccessException {
+        final List<String[]> dataLines = new ArrayList<>();
+        dataLines.add(getHeaderOf("Log"));
+        int counter = 0;
+        for (final var coorLogs : this.logs.entrySet()) {
+            dataLines.add(getLogContent(counter, coorLogs));
+            counter++;
+        }
+        return dataLines;
+    }
+
+    private String[] getLogContent(int counter, Map.Entry<MavenCoordinate, Pair<String, String>> coorLogs) {
+            return new String[] {
+                /* number */ String.valueOf(counter),
+                /* coordinate */ coorLogs.getKey().getCoordinate(),
+                /* opalLog */ coorLogs.getValue().getLeft(),
+                /* mergeLog */ coorLogs.getValue().getRight()
+            };
     }
 
     public void concludeAll(final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
                             final String resultPath)
         throws IOException, NoSuchFieldException, IllegalAccessException {
 
-        writeToCSV(buildOpalCSV(resolvedData), resultPath + "/resultOpal.csv");
         writeToCSV(buildOverallCsv(resolvedData), resultPath + "/Overall.csv");
         writeToCSV(buildAccuracyCsv(resolvedData), resultPath + "/accuracy.csv");
     }
@@ -263,25 +367,24 @@ public class StatCounter {
     }
 
     private List<String[]> buildOpalCSV(
-        final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData) {
+        Map<MavenCoordinate, List<MavenCoordinate>> resolvedData) {
 
         final List<String[]> dataLines = new ArrayList<>();
         dataLines.add(getHeaderOf("Opal"));
 
         int counter = 0;
-        for (final var opal : opalStats.entrySet()) {
-            final var coord = opal.getKey();
-            final var opalStats = opal.getValue();
-            dataLines.add(getContentOfOpal(resolvedData, counter, coord, opalStats));
+        for (var opal : opalStats.entrySet()) {
+            var opalStats = opal.getValue();
+            dataLines.add(getContentOfOpal(resolvedData, counter, opal.getKey(), opalStats));
             counter++;
         }
         return dataLines;
     }
 
     private String[] getContentOfOpal(
-        final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
-        final int counter, final MavenCoordinate coord,
-        final OpalStats opalStats) {
+        Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
+        final int counter, MavenCoordinate coord,
+        OpalStats opalStats) {
         return new String[] {
             /* number */ String.valueOf(counter),
             /* coordinate */ coord.getCoordinate(),
@@ -407,6 +510,9 @@ public class StatCounter {
         } else if (CSVName.equals("Accuracy")) {
             return new String[] {"number", "coordinate", "source", "precision", "recall",
                 "OPAL", "Merge", "intersection", "dependencies"};
+
+        } else if (CSVName.equals("Log")) {
+            return new String[] {"number", "coordinate", "opalLog", "mergeLog"};
         }
 
         //Merge
