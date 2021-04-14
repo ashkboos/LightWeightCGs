@@ -62,13 +62,13 @@ public class StatCounter {
         logs = new HashMap<>();
     }
 
-    public void addAccuracy(MavenCoordinate toMerge,
-                            List<SourceStats> acc) {
+    public void addAccuracy(final MavenCoordinate toMerge,
+                            final List<SourceStats> acc) {
         this.accuracy.put(toMerge, acc);
     }
 
     public void addLog(final File[] opalLog, final File[] mergeLog,
-                       MavenCoordinate coord) {
+                       final MavenCoordinate coord) {
         String opalLogString = "", mergeLoString = "";
         if (opalLog != null) {
          opalLogString = readFromLast(opalLog[0], 20);
@@ -79,7 +79,7 @@ public class StatCounter {
         this.logs.put(coord, ImmutablePair.of(opalLogString, mergeLoString));
     }
 
-    public String readFromLast(File file, int lines){
+    public String readFromLast(final File file, final int lines){
         List<String> result = new ArrayList<>();
         int readLines = 0;
         StringBuilder builder = new StringBuilder();
@@ -126,16 +126,17 @@ public class StatCounter {
     }
 
     public static class SourceStats {
-        final private String source;
+//        final private String source;
         final private double precision;
         final private double recall;
         final private int OPAL;
         final private int merge;
         final private int intersect;
 
-        public SourceStats(String source, double precision, double recall, int OPAL,
-                           int merge, int intersect) {
-            this.source = source;
+        public SourceStats(final String source, final double precision, final double recall,
+                           final int OPAL,
+                           final int merge, final int intersect) {
+//            this.source = source;
             this.precision = precision;
             this.recall = recall;
             this.OPAL = OPAL;
@@ -353,7 +354,7 @@ public class StatCounter {
             result.add(new String[] {
                 /* number */ String.valueOf(counter),
                 /* coordinate */ coord.getCoordinate(),
-                /* source */ String.valueOf(sourceStat.source),
+//                /* source */ String.valueOf(sourceStat.source),
                 /* precision */ String.valueOf(sourceStat.precision),
                 /* recall */ String.valueOf(sourceStat.recall),
                 /* emptyOPAL */ String.valueOf(sourceStat.OPAL),
@@ -508,7 +509,9 @@ public class StatCounter {
             };
 
         } else if (CSVName.equals("Accuracy")) {
-            return new String[] {"number", "coordinate", "source", "precision", "recall",
+            return new String[] {"number", "coordinate",
+//                "source",
+                "precision", "recall",
                 "OPAL", "Merge", "intersection", "dependencies"};
 
         } else if (CSVName.equals("Log")) {

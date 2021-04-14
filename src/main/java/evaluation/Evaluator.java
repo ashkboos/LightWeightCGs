@@ -93,6 +93,7 @@ public class Evaluator {
 
     private static void analyzeDir(final String rootPath, final String outPath)
         throws IOException, NoSuchFieldException, IllegalAccessException {
+        logger.info("Start analyzing directory...");
         final var statCounter = new StatCounter();
         final Map<MavenCoordinate, List<MavenCoordinate>> depTree = new HashMap<>();
         int counter = 0;
