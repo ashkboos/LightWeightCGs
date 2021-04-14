@@ -126,7 +126,7 @@ public class StatCounter {
     }
 
     public static class SourceStats {
-//        final private String source;
+        final private String source;
         final private double precision;
         final private double recall;
         final private int OPAL;
@@ -136,7 +136,7 @@ public class StatCounter {
         public SourceStats(final String source, final double precision, final double recall,
                            final int OPAL,
                            final int merge, final int intersect) {
-//            this.source = source;
+            this.source = source;
             this.precision = precision;
             this.recall = recall;
             this.OPAL = OPAL;
@@ -354,7 +354,7 @@ public class StatCounter {
             result.add(new String[] {
                 /* number */ String.valueOf(counter),
                 /* coordinate */ coord.getCoordinate(),
-//                /* source */ String.valueOf(sourceStat.source),
+                /* source */ String.valueOf(sourceStat.source),
                 /* precision */ String.valueOf(sourceStat.precision),
                 /* recall */ String.valueOf(sourceStat.recall),
                 /* emptyOPAL */ String.valueOf(sourceStat.OPAL),
@@ -509,9 +509,7 @@ public class StatCounter {
             };
 
         } else if (CSVName.equals("Accuracy")) {
-            return new String[] {"number", "coordinate",
-//                "source",
-                "precision", "recall",
+            return new String[] {"number", "coordinate", "source", "precision", "recall",
                 "OPAL", "Merge", "intersection", "dependencies"};
 
         } else if (CSVName.equals("Log")) {
