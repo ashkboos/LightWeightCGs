@@ -103,7 +103,10 @@ public class Evaluator {
             final var opalCG = getOpalCG(opal);
             final var depEntry = updateStatCounter(merge, opal, statCounter);
             depTree.put(depEntry.getKey(), depEntry.getValue());
-            final var mergedCG = getMergedCGs(merge);
+            List<ExtendedRevisionJavaCallGraph> mergedCG = new ArrayList<>();
+            if (opalCG != null) {
+                mergedCG = getMergedCGs(merge);
+            }
             logger.info("opal and merge are in memory!");
             MavenCoordinate coord;
             if( !mergedCG.isEmpty() && opalCG != null ) {
