@@ -105,8 +105,14 @@ public class Evaluator {
             depTree.put(depEntry.getKey(), depEntry.getValue());
             final var mergedCG = getMergedCGs(merge);
             logger.info("opal and merge are in memory!");
+            MavenCoordinate coord;
             if( !mergedCG.isEmpty() && opalCG != null ) {
-                statCounter.addAccuracy(depEntry.getKey(),
+                if (depEntry != null) {
+                    coord = depEntry.getKey();
+                }else {
+                    coord = MavenCoordinate.fromString("", "jar");
+                }
+                statCounter.addAccuracy(coord,
                     calcPrecisionRecall(
                         removeVersions(groupBySource(compareMergeOPAL(mergedCG, opalCG)))));
             }
@@ -130,9 +136,19 @@ public class Evaluator {
         final var cgPool = getCSV(merge.getAbsolutePath()+ "/CGPool.csv");
         final var resultMerge = getCSV(merge.getAbsolutePath()+"/Merge.csv");
         final var mergeLog = getFile(merge, "log");
-        final var depEntry = addOpalToStatCounter(resultOpal.get(0), statCounter);
-        addMergeToStatCounter(resultMerge, statCounter);
-        addCGPoolToStatCounter(cgPool, statCounter);
+        Map.Entry<MavenCoordinate, List<MavenCoordinate>> depEntry = null;
+        if (!resultOpal.isEmpty() && resultOpal != null) {
+            depEntry = addOpalToStatCounter(resultOpal.get(0), statCounter);
+        }
+        if (!resultMerge.isEmpty() && resultMerge != null) {
+            if (depEntry == null) {
+                depEntry = addMergeToStatCounter(resultMerge, statCounter);
+            }
+            addMergeToStatCounter(resultMerge, statCounter);
+        }
+        if (!cgPool.isEmpty() && cgPool != null) {
+            addCGPoolToStatCounter(cgPool, statCounter);
+        }
         statCounter.addLog(opalLog, mergeLog, depEntry.getKey());
         return depEntry;
     }
@@ -152,14 +168,18 @@ public class Evaluator {
         }
     }
 
-    private static void addMergeToStatCounter(final List<Map<String, String>> resultMerge,
+    private static Map.Entry<MavenCoordinate, List<MavenCoordinate>> addMergeToStatCounter(final List<Map<String, String>> resultMerge,
                                               StatCounter statCounter) {
+        MavenCoordinate coord = null;
+        Set<MavenCoordinate> depSet = new HashSet<>();
         for (final var merge : resultMerge) {
             List<MavenCoordinate> deps = new ArrayList<>();
             for (final var dep : merge.get("dependencies").split(";")) {
                 deps.add(MavenCoordinate.fromString(dep, "jar"));
             }
-            statCounter.addMerge(MavenCoordinate.fromString(merge.get("rootCoordinate"), "jar"),
+            depSet.addAll(deps);
+            coord = MavenCoordinate.fromString(merge.get("rootCoordinate"), "jar");
+            statCounter.addMerge(coord,
                 MavenCoordinate.fromString(merge.get("artifact"), "jar"),
                 deps, Long.parseLong(merge.get("mergeTime")),
                 new StatCounter.GraphStats(Integer.parseInt(merge.get("internalNodes")),
@@ -170,7 +190,7 @@ public class Evaluator {
                     Integer.parseInt(merge.get("resolvedEdges"))));
 
         }
-
+        return Map.entry(coord, new ArrayList<>(depSet));
     }
 
     private static Map.Entry<MavenCoordinate, List<MavenCoordinate>> addOpalToStatCounter(final Map<String, String> resultOpal,
