@@ -94,7 +94,7 @@ public class Evaluator {
     private static void analyzeDir(final String rootPath, final String outPath)
         throws IOException, NoSuchFieldException, IllegalAccessException {
         final var statCounter = new StatCounter();
-        Map<MavenCoordinate, List<MavenCoordinate>> depTree = new HashMap<>();
+        final Map<MavenCoordinate, List<MavenCoordinate>> depTree = new HashMap<>();
         for (final var pckg : Objects.requireNonNull(new File(rootPath).listFiles())) {
             final var opal = getFile(pckg, "opal")[0];
             final var merge = getFile(pckg, "merge")[0];
@@ -107,11 +107,13 @@ public class Evaluator {
                     calcPrecisionRecall(
                         removeVersions(groupBySource(compareMergeOPAL(mergedCG, opalCG)))));
             }
+            System.gc();
         }
         statCounter.concludeMerge(outPath);
         statCounter.concludeOpal(depTree, outPath);
         statCounter.concludeLogs(outPath);
         statCounter.concludeAll(depTree, outPath);
+        System.gc();
 
     }
 
@@ -185,11 +187,11 @@ public class Evaluator {
     }
 
     private static List<Map<String, String>> getCSV(final String inputPath) {
-        List<Map<String, String>> result = new ArrayList<>();
+        final List<Map<String, String>> result = new ArrayList<>();
         try (var csvReader = new CSVReader(new FileReader(inputPath), ',', '\'')) {
             String[] values;
             boolean firstRow = true;
-            List<String> header = new ArrayList<>();
+            final List<String> header = new ArrayList<>();
             while ((values = csvReader.readNext()) != null) {
                 Map<String, String> row = new HashMap<>();
                 for (int i = 0; i < values.length; i++) {
@@ -214,11 +216,10 @@ public class Evaluator {
 
     private static ExtendedRevisionJavaCallGraph getOpalCG(final File opalDir) throws FileNotFoundException {
         final var opalFile = getFile(opalDir, "cg.json");
-        ExtendedRevisionJavaCallGraph opalCG = null;
         if (opalFile != null) {
-            opalCG = getRCG(opalFile[0]);
+            return getRCG(opalFile[0]);
         }
-        return opalCG;
+        return null;
     }
 
     private static File[] getFile(final File opalDir, final String fileName) {
@@ -227,7 +228,7 @@ public class Evaluator {
     }
 
     private static List<ExtendedRevisionJavaCallGraph> getMergedCGs(final File mergeFiles) throws FileNotFoundException {
-        List<ExtendedRevisionJavaCallGraph> result = new ArrayList<>();
+        final List<ExtendedRevisionJavaCallGraph> result = new ArrayList<>();
         final var allCGs = mergeFiles.listFiles((dir, name) -> name.toLowerCase().endsWith(
             "json"));
         if (allCGs != null) {
@@ -240,7 +241,7 @@ public class Evaluator {
 
     private static ExtendedRevisionJavaCallGraph getRCG(final File serializedCGFile)
         throws FileNotFoundException {
-        JSONTokener tokener = new JSONTokener(new FileReader(serializedCGFile));
+        final JSONTokener tokener = new JSONTokener(new FileReader(serializedCGFile));
         return new ExtendedRevisionJavaCallGraph(new JSONObject(tokener));
     }
 
@@ -250,7 +251,7 @@ public class Evaluator {
         final var rcgs = mergeRecord(Map.of(coords.getKey(), coords.getValue()), statCounter,
             new HashMap<>(), coords.getKey());
         for (int i = 0; i < rcgs.size(); i++) {
-            ExtendedRevisionJavaCallGraph rcg = rcgs.get(i);
+            final ExtendedRevisionJavaCallGraph rcg = rcgs.get(i);
             CallGraphUtils.writeToFile(path, JSONUtils.toJSONString(rcg),"/" + i+ ".json");
         }
         statCounter.concludeMerge(path);
