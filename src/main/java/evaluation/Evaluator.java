@@ -221,7 +221,7 @@ public class Evaluator {
 
     private static ExtendedRevisionJavaCallGraph getOpalCG(final File opalDir) throws FileNotFoundException {
         final var opalFile = getFile(opalDir, "cg.json");
-        if (opalFile != null) {
+        if (opalFile != null && opalFile.length!=0) {
             return getRCG(opalFile[0]);
         }
         return null;
