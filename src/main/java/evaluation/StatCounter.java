@@ -334,7 +334,7 @@ public class StatCounter {
         writeToCSV(buildAccuracyCsv(resolvedData), resultPath + "/accuracy.csv");
     }
 
-    private List<String[]> buildAccuracyCsv(Map<MavenCoordinate, List<MavenCoordinate>> resolvedData) {
+    private List<String[]> buildAccuracyCsv(final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData) {
         final List<String[]> dataLines = new ArrayList<>();
         dataLines.add(getHeaderOf("Accuracy"));
 
@@ -436,7 +436,8 @@ public class StatCounter {
         int counter = 0;
         for (final var coorDeps : depTree.entrySet()) {
             final var coord = coorDeps.getKey();
-            dataLines.add(getOverallContent(depTree, counter, coord, opalStats.get(coord)));
+            dataLines.add(
+                getOverallContent(depTree, counter, coord, opalStats.getOrDefault(coord, null)));
             counter++;
         }
         return dataLines;
@@ -467,15 +468,19 @@ public class StatCounter {
         return new String[] {
             /* number */ String.valueOf(counter),
             /* coordinate */ coord.getCoordinate(),
-            /* opalTime */ String.valueOf(opalStats.time),
+            /* opalTime */ opalStats == null ? "" : String.valueOf(opalStats.time),
             /* totalMergeTime */ String.valueOf(mergePool.getLeft() + mergePool.getRight()),
             /* cgPool */ String.valueOf(mergePool.getRight()),
             /* mergeTime */ String.valueOf(mergePool.getLeft()),
             /* UCHTime */ String.valueOf(UCHTime.get(coord)),
-            /* opalInternalNodes */ String.valueOf(opalStats.opalGraphStats.internalNodes),
-            /* opalExternalNodes */ String.valueOf(opalStats.opalGraphStats.externalNodes),
-            /* opalInternalEdges */ String.valueOf(opalStats.opalGraphStats.internalEdges),
-            /* opalExternalEdges */ String.valueOf(opalStats.opalGraphStats.externalEdges),
+            /* opalInternalNodes */ opalStats == null ? "-1" :
+            String.valueOf(opalStats.opalGraphStats.internalNodes),
+            /* opalExternalNodes */ opalStats == null ? "-1" :
+            String.valueOf(opalStats.opalGraphStats.externalNodes),
+            /* opalInternalEdges */ opalStats == null ? "-1" :
+            String.valueOf(opalStats.opalGraphStats.internalEdges),
+            /* opalExternalEdges */ opalStats == null ? "-1" :
+            String.valueOf(opalStats.opalGraphStats.externalEdges),
             /* mergeInternalNodes */ calculateNumberOf("internal", "Nodes", coord, depTree),
             /* mergeExternalNodes */ calculateNumberOf("external", "Nodes", coord, depTree),
             /* mergeInternalEdges */ calculateNumberOf("internal", "Edges", coord, depTree),
@@ -547,14 +552,24 @@ public class StatCounter {
         int allNodes = 0;
 
         if (scope.equals("resolved")) {
-            for (final var singleMerge : mergeStats.get(coord)) {
-                allNodes = allNodes + singleMerge.mergeStats.getField(scope + nodesOrEdges);
+            if (mergeStats.containsKey(coord)) {
+                for (final var singleMerge : mergeStats.get(coord)) {
+                    allNodes = allNodes + singleMerge.mergeStats.getField(scope + nodesOrEdges);
+                }
+            }else {
+                return "-1";
             }
+
         } else {
-            for (final var depCoord : depTree.get(coord)) {
-                allNodes =
-                    allNodes +
-                        cgPoolStats.get(depCoord).cgPoolGraphStats.getField(scope + nodesOrEdges);
+            if (cgPoolStats.containsKey(coord)) {
+                for (final var depCoord : depTree.get(coord)) {
+                    allNodes =
+                        allNodes +
+                            cgPoolStats.get(depCoord).cgPoolGraphStats
+                                .getField(scope + nodesOrEdges);
+                }
+            }else {
+                return "1";
             }
         }
 

@@ -143,8 +143,11 @@ public class Evaluator {
         if (!resultMerge.isEmpty() && resultMerge != null) {
             if (depEntry == null) {
                 depEntry = addMergeToStatCounter(resultMerge, statCounter);
+            }else {
+                final var temp = depEntry.getValue();
+                temp.addAll(addMergeToStatCounter(resultMerge, statCounter).getValue());
+                depEntry.setValue(temp);
             }
-            addMergeToStatCounter(resultMerge, statCounter);
         }
         if (!cgPool.isEmpty() && cgPool != null) {
             addCGPoolToStatCounter(cgPool, statCounter);
