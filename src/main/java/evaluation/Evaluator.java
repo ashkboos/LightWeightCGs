@@ -103,13 +103,14 @@ public class Evaluator {
             final var depEntry = updateStatCounter(merge, opal, statCounter);
             depTree.put(depEntry.getKey(), depEntry.getValue());
             final var mergedCG = getMergedCGs(merge);
+            logger.info("opal and merge are in memory!");
             if( !mergedCG.isEmpty() && opalCG != null ) {
                 statCounter.addAccuracy(depEntry.getKey(),
                     calcPrecisionRecall(
                         removeVersions(groupBySource(compareMergeOPAL(mergedCG, opalCG)))));
             }
             System.gc();
-            System.out.println(counter);
+            logger.info("pckg number :{}", counter);
             counter++;
         }
         statCounter.concludeMerge(outPath);
@@ -363,8 +364,9 @@ public class Evaluator {
     }
 
     private static List<ExtendedRevisionJavaCallGraph> mergeRecord(
-        Map<MavenCoordinate, List<MavenCoordinate>> resolvedData, StatCounter statCounter,
-        Map<MavenCoordinate, ExtendedRevisionJavaCallGraph> cgPool, MavenCoordinate toMerge) {
+        final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData, StatCounter statCounter,
+        final Map<MavenCoordinate, ExtendedRevisionJavaCallGraph> cgPool,
+        final MavenCoordinate toMerge) {
         for (final var dep : resolvedData.get(toMerge)) {
             if (!cgPool.containsKey(dep)) {
                 addToCGPool(statCounter, cgPool, dep);
@@ -379,13 +381,14 @@ public class Evaluator {
             toMerge);
     }
 
-    private static List<StatCounter.SourceStats> calcPrecisionRecall(Map<String, Map<String, List<String>>> edges){
+    private static List<StatCounter.SourceStats> calcPrecisionRecall(final Map<String, Map<String,
+        List<String>>> edges){
         final var opal = edges.get("opalInternals");
         final var merge = edges.get("mergeInternals");
         final var allSources = new HashSet<String>();
         allSources.addAll(opal.keySet());
         allSources.addAll(merge.keySet());
-        List<StatCounter.SourceStats> result = new ArrayList<>();
+        final List<StatCounter.SourceStats> result = new ArrayList<>();
         for (final var source : allSources) {
 
             final var opalTargets = new HashSet<>(opal.getOrDefault(source,
@@ -405,7 +408,8 @@ public class Evaluator {
         return result;
     }
 
-    private static Map<String, Map<String, List<String>>> removeVersions(Map<String, Map<String, List<String>>> edges) {
+    private static Map<String, Map<String, List<String>>> removeVersions(final Map<String,
+        Map<String, List<String>>> edges) {
         for (var targets : edges.get("mergeInternals").entrySet()) {
             final List<String> removedVersion = new ArrayList<>();
             for (String target : targets.getValue()) {

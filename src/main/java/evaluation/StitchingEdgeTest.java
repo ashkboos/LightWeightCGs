@@ -45,7 +45,7 @@ public class StitchingEdgeTest {
 
     public static Map<String, List<Pair<String, String>>> compareMergeOPAL(
         final List<ExtendedRevisionJavaCallGraph> merges,
-        ExtendedRevisionJavaCallGraph opal) {
+        final ExtendedRevisionJavaCallGraph opal) {
         final var mergeInternals =
             augmentInternals(merges).stream().sorted().collect(Collectors.toList());
         final var mergeExternals =
@@ -65,7 +65,7 @@ public class StitchingEdgeTest {
 
     private static List<Pair<String, String>> augmentInternals(
         final List<ExtendedRevisionJavaCallGraph> rcgs) {
-        List<Pair<String, String>> internals = new ArrayList<>();
+        final List<Pair<String, String>> internals = new ArrayList<>();
         for (final var rcg : rcgs) {
             internals.addAll(CallGraphUtils.convertToNodePairs(rcg)
                 .get("resolvedTypes"));
@@ -76,7 +76,7 @@ public class StitchingEdgeTest {
 
     private static List<Pair<String, String>> augmentExternals(
         final List<ExtendedRevisionJavaCallGraph> rcgs) {
-        List<Pair<String, String>> externals = new ArrayList<>();
+        final List<Pair<String, String>> externals = new ArrayList<>();
         for (final var rcg : rcgs) {
             externals.addAll(CallGraphUtils.convertToNodePairs(rcg)
                 .get("internalTypes"));
@@ -163,7 +163,7 @@ public class StitchingEdgeTest {
         final Map<String, Map<String, List<String>>> result = new HashMap<>();
 
         for (Map.Entry<String, List<Pair<String, String>>> scope : edges.entrySet()) {
-            Map<String, List<String>> edgesOfSource = new HashMap<>();
+            final Map<String, List<String>> edgesOfSource = new HashMap<>();
 
             for (Pair<String, String> edge : scope.getValue()) {
                 edgesOfSource.computeIfAbsent(edge.getLeft(), s -> new ArrayList<>()).add(edge.getRight());
@@ -176,7 +176,7 @@ public class StitchingEdgeTest {
     private static List<ExtendedRevisionJavaCallGraph> merge(final List<ExtendedRevisionJavaCallGraph> deps) {
 
         final var cgMerger = new LocalMerger(deps);
-        List<ExtendedRevisionJavaCallGraph> mergedRCGs = new ArrayList<>();
+        final List<ExtendedRevisionJavaCallGraph> mergedRCGs = new ArrayList<>();
         for (final var rcg : deps) {
             mergedRCGs
                 .add(cgMerger.mergeWithCHA(rcg));
