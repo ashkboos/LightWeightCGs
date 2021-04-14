@@ -143,10 +143,11 @@ public class Evaluator {
         if (!resultMerge.isEmpty() && resultMerge != null) {
             if (depEntry == null) {
                 depEntry = addMergeToStatCounter(resultMerge, statCounter);
-            }else {
-                final var temp = depEntry.getValue();
-                temp.addAll(addMergeToStatCounter(resultMerge, statCounter).getValue());
-                depEntry.setValue(temp);
+            } else {
+                final Set<MavenCoordinate> temp = new HashSet<>(depEntry.getValue());
+                final var mergeDeps = addMergeToStatCounter(resultMerge, statCounter);
+                temp.addAll(mergeDeps.getValue());
+                depEntry = Map.entry(mergeDeps.getKey(), new ArrayList<>(temp));
             }
         }
         if (!cgPool.isEmpty() && cgPool != null) {
