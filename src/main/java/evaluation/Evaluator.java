@@ -65,7 +65,7 @@ public class Evaluator {
     private static final Logger logger = LoggerFactory.getLogger(Evaluator.class);
 
     public static void main(String[] args)
-        throws IOException, NoSuchFieldException, IllegalAccessException, OPALException {
+        throws IOException, NoSuchFieldException, IllegalAccessException {
         var root = (ch.qos.logback.classic.Logger) LoggerFactory
             .getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
         root.setLevel(Level.INFO);
@@ -95,6 +95,7 @@ public class Evaluator {
         throws IOException, NoSuchFieldException, IllegalAccessException {
         final var statCounter = new StatCounter();
         final Map<MavenCoordinate, List<MavenCoordinate>> depTree = new HashMap<>();
+        int counter = 0;
         for (final var pckg : Objects.requireNonNull(new File(rootPath).listFiles())) {
             final var opal = getFile(pckg, "opal")[0];
             final var merge = getFile(pckg, "merge")[0];
@@ -108,6 +109,8 @@ public class Evaluator {
                         removeVersions(groupBySource(compareMergeOPAL(mergedCG, opalCG)))));
             }
             System.gc();
+            System.out.println(counter);
+            counter++;
         }
         statCounter.concludeMerge(outPath);
         statCounter.concludeOpal(depTree, outPath);
