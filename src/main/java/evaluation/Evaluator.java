@@ -97,8 +97,7 @@ public class Evaluator {
             final var splitted = splitToChunks(multiDeps, args[2]);
             for (int i = 0; i < splitted.size(); i++) {
                 final var part = splitted.get(i);
-                final var url = args[3].split("[.]");
-                StatCounter.writeToCSV(buildDataCSV(part), url[0]+".p"+i+"."+url[1]);
+                StatCounter.writeToCSV(buildDataCSV(part), args[3]+"/chunk.p"+i+".csv");
             }
             logger.info("Wrote resolved data into file successfully!");
         }
