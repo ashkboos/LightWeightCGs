@@ -1,13 +1,17 @@
 package evaluation;
 
 import eu.fasten.analyzer.javacgopal.data.CallGraphConstructor;
-import eu.fasten.analyzer.javacgopal.data.MavenCoordinate;
+import eu.fasten.core.data.DirectedGraph;
+import eu.fasten.core.data.FastenURI;
+import eu.fasten.core.data.opal.MavenCoordinate;
 import eu.fasten.analyzer.javacgopal.data.PartialCallGraph;
-import eu.fasten.analyzer.javacgopal.data.exceptions.MissingArtifactException;
-import eu.fasten.analyzer.javacgopal.data.exceptions.OPALException;
+import eu.fasten.core.data.opal.exceptions.MissingArtifactException;
+import eu.fasten.core.data.opal.exceptions.OPALException;
 import eu.fasten.core.data.ExtendedRevisionJavaCallGraph;
-import eu.fasten.core.merge.CallGraphUtils;
-import eu.fasten.core.merge.LocalMerger;
+import eu.fasten.core.merge.CGMerger;
+import it.unimi.dsi.fastutil.Pair;
+import it.unimi.dsi.fastutil.longs.LongLongPair;
+import it.unimi.dsi.fastutil.objects.ObjectObjectImmutablePair;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -15,7 +19,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -44,50 +47,26 @@ public class StitchingEdgeTest {
     }
 
     public static Map<String, List<Pair<String, String>>> compareMergeOPAL(
-        final List<ExtendedRevisionJavaCallGraph> merges,
-        final ExtendedRevisionJavaCallGraph opal) {
-        final var mergeInternals =
-            augmentInternals(merges).stream().sorted().collect(Collectors.toList());
-        final var mergeExternals =
-            augmentExternals(merges).stream().sorted().collect(Collectors.toList());
-        final var opalInternals =
-            CallGraphUtils.convertToNodePairs(opal).get("internalTypes");
-        final var opalExternals =
-            CallGraphUtils.convertToNodePairs(opal).get("externalTypes");
+        final Pair<DirectedGraph, Map<Long, String>> merge,
+        final Pair<DirectedGraph, Map<Long, String>> opal) {
+        final var mergePairs = convertToNodePairs(merge);
+        final var opalPairs = convertToNodePairs(opal);
 
-        return Map.of("mergeInternals", mergeInternals,
-            "mergeExternals", mergeExternals,
-            "opalInternals", opalInternals,
-            "opalExternals", opalExternals
-        );
-
+        return Map.of("merge", mergePairs, "opal", opalPairs);
     }
 
-    private static List<Pair<String, String>> augmentInternals(
-        final List<ExtendedRevisionJavaCallGraph> rcgs) {
-        final List<Pair<String, String>> internals = new ArrayList<>();
-        for (final var rcg : rcgs) {
-            internals.addAll(CallGraphUtils.convertToNodePairs(rcg)
-                .get("resolvedTypes"));
+    public static List<Pair<String, String>> convertToNodePairs(
+        Pair<DirectedGraph, Map<Long, String>> opal) {
+        List<Pair<String, String>> result = new ArrayList<>();
+        for (LongLongPair edge : opal.left().edgeSet()) {
+            final var firstMethod =
+                FastenURI.create(opal.right().get(edge.firstLong())).getEntity();
+            final var secondMethod =
+                FastenURI.create(opal.right().get(edge.secondLong())).getEntity();
+            result.add(ObjectObjectImmutablePair.of(firstMethod, secondMethod));
         }
-
-        return internals;
+        return result;
     }
-
-    private static List<Pair<String, String>> augmentExternals(
-        final List<ExtendedRevisionJavaCallGraph> rcgs) {
-        final List<Pair<String, String>> externals = new ArrayList<>();
-        for (final var rcg : rcgs) {
-            externals.addAll(CallGraphUtils.convertToNodePairs(rcg)
-                .get("internalTypes"));
-            externals.addAll(CallGraphUtils.convertToNodePairs(rcg)
-                .get("externalTypes"));
-        }
-
-        return externals;
-    }
-
-
 
     static List<String[]> buildOverallCsv(final Map<String, Map<String, List<String>>> edges) {
 
@@ -101,26 +80,19 @@ public class StitchingEdgeTest {
     private static List<String[]> getScopeEdges(final Map<String, Map<String, List<String>>> edges) {
         final List<String[]> result = new ArrayList<>();
 
-        final var opalInternals = edges.get("opalInternals");
-        final var opalExternals = edges.get("opalExternals");
-        final var mergeInternal = edges.get("mergeInternals");
-        final var mergeExternals = edges.get("mergeExternals");
+        final var opal = edges.get("opal");
+        final var merge = edges.get("merge");
         int counter = 0;
         final var allSources = new HashSet<String>();
-        allSources.addAll(opalInternals.keySet());
-        allSources.addAll(opalExternals.keySet());
-        allSources.addAll(mergeInternal.keySet());
-        allSources.addAll(mergeExternals.keySet());
+        allSources.addAll(opal.keySet());
+        allSources.addAll(merge.keySet());
 
         for (final var source : allSources) {
 
             result.add(getContent(counter,
                 source,
-                opalInternals.getOrDefault(source, new ArrayList<>()),
-                mergeInternal.getOrDefault(source, new ArrayList<>()),
-                opalExternals.getOrDefault(source, new ArrayList<>()),
-                mergeExternals.getOrDefault(source, new ArrayList<>())
-            ));
+                opal.getOrDefault(source, new ArrayList<>()),
+                merge.getOrDefault(source, new ArrayList<>())));
             counter++;
 
         }
@@ -130,31 +102,23 @@ public class StitchingEdgeTest {
 
     private static String[] getContent(int counter,
                                        final String source,
-                                       final List<String> opalInternal,
-                                       final List<String> mergeInternal,
-                                       final List<String> opalExternal,
-                                       final List<String> mergeExternal) {
+                                       final List<String> opal,
+                                       final List<String> merge) {
 
         return new String[] {
             /* num */ String.valueOf(counter),
             /* source */ source,
-            /* opalInternal */ opalInternal.stream().sorted().collect(Collectors.joining( ",\n" )),
-            /* count */ String.valueOf(opalInternal.size()),
-            /* mergeInternal */ mergeInternal.stream().sorted().collect( Collectors.joining( ",\n" )),
-            /* count */ String.valueOf(mergeInternal.size()),
-            /* opalExternal */ opalExternal.stream().sorted().collect(Collectors.joining( ",\n" )),
-            /* count */ String.valueOf(opalExternal.size()),
-            /* mergeExternal */ mergeExternal.stream().sorted().collect( Collectors.joining( ",\n" )),
-            /* count */ String.valueOf(mergeExternal.size())
-        };
+            /* opal */ opal.stream().sorted().collect(Collectors.joining( ",\n" )),
+            /* count */ String.valueOf(opal.size()),
+            /* merge */ merge.stream().sorted().collect( Collectors.joining( ",\n" )),
+            /* count */ String.valueOf(merge.size())};
     }
 
     private static String[] getHeader() {
         return new String[] {
-            "num", "source", "opalInternal",
-            "count", "mergeInternal",
-            "count", "opalExternal", "count", "mergeExternal", "count"
-        };
+            "num", "source", "opal",
+            "count", "merge",
+            "count" };
     }
 
     static Map<String, Map<String, List<String>>> groupBySource(
@@ -166,22 +130,17 @@ public class StitchingEdgeTest {
             final Map<String, List<String>> edgesOfSource = new HashMap<>();
 
             for (Pair<String, String> edge : scope.getValue()) {
-                edgesOfSource.computeIfAbsent(edge.getLeft(), s -> new ArrayList<>()).add(edge.getRight());
+                edgesOfSource.computeIfAbsent(edge.left(), s -> new ArrayList<>()).add(edge.right());
             }
             result.put(scope.getKey(), edgesOfSource);
         }
         return result;
     }
 
-    private static List<ExtendedRevisionJavaCallGraph> merge(final List<ExtendedRevisionJavaCallGraph> deps) {
+    private static Pair<DirectedGraph, Map<Long, String>> merge(final List<ExtendedRevisionJavaCallGraph> deps) {
 
-        final var cgMerger = new LocalMerger(deps);
-        final List<ExtendedRevisionJavaCallGraph> mergedRCGs = new ArrayList<>();
-        for (final var rcg : deps) {
-            mergedRCGs
-                .add(cgMerger.mergeWithCHA(rcg));
-        }
-        return mergedRCGs;
+        final var cgMerger = new CGMerger(deps);
+        return Pair.of(cgMerger.mergeAllDeps(), cgMerger.getAllUris());
     }
 
     private static List<ExtendedRevisionJavaCallGraph> getDepsCG(final Map.Entry<MavenCoordinate,
@@ -210,18 +169,21 @@ public class StitchingEdgeTest {
 
 
 
-    private static ExtendedRevisionJavaCallGraph getOpalCG(final Map.Entry<MavenCoordinate,
+    private static Pair<DirectedGraph, Map<Long, String>> getOpalCG(final Map.Entry<MavenCoordinate,
         List<MavenCoordinate>> row)
         throws IOException, OPALException {
         final var tempDir = Evaluator.downloadToDir(row.getValue());
         System.out.println("################# \n downloaded jars to:" +tempDir.getAbsolutePath());
         final var cg = new PartialCallGraph(new CallGraphConstructor(tempDir, "", "CHA"));
 
-        return ExtendedRevisionJavaCallGraph.extendedBuilder()
+        final var ercg = ExtendedRevisionJavaCallGraph.extendedBuilder()
             .graph(cg.getGraph())
             .classHierarchy(cg.getClassHierarchy())
             .nodeCount(cg.getNodeCount())
             .build();
+        final var map = ercg.mapOfFullURIStrings().entrySet().stream()
+            .collect(Collectors.toMap(e -> Long.valueOf(e.getKey()), Map.Entry::getValue));
+        return Pair.of(ExtendedRevisionJavaCallGraph.toLocalDirectedGraph(ercg), map);
     }
 
 }
