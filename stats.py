@@ -11,11 +11,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy import stats
 import sys
-
+from os import path
 # In[3]:
 
-directory ='figures'
-root = '/Users/mehdi/Desktop/MyMac/TUD/FASTEN/Repositories/MainRepo/LightWeightCGs/results/outputStats/overAll/'
+root = sys.argv[1]+"/"
+directory = root+'figures'
+if not path.exists(directory):
+    os.mkdir(directory)
 accuracy = pd.read_csv(root+"accuracy.csv")
 overall = pd.read_csv(root+"Overall.csv")
 overall = overall[~overall['opalTime'].isna()]
