@@ -55,7 +55,7 @@ def remove_outliers(df):
     abs_z_scores = np.abs(z_scores)
     filtered_entries = (abs_z_scores < 3)
     new_df = df[filtered_entries]
-    return new_df , df - new_df
+    return new_df , df[~df.isin(new_df)]
 
 
 # In[8]:
@@ -139,15 +139,15 @@ print("####### Input Data ####### \n ")
 fig, (ax1) = plt.subplots(nrows=1, ncols=3, sharey=False)
 new, outliers = remove_outliers(input_data['depNum'])
 ax1[0].boxplot(input_data['depNum'])
-# print(outliers)
+print("depNum"+ outliers)
 ax1[0].set_title('Dependencies')
 new, outliers = remove_outliers(input_data['numFiles'])
 ax1[1].boxplot(input_data['numFiles'])
-# print(outliers)
+print("numFiles"+ outliers)
 ax1[1].set_title('Files')
 new, outliers = remove_outliers(input_data['numFilesWithDeps'])
 ax1[2].boxplot(input_data['numFilesWithDeps'])
-# print(outliers)
+print("numFileWithDeps"+outliers)
 ax1[2].set_title('Files with deps')
 fig.tight_layout(pad=1)
 plt.savefig(directory+'/input.pdf')
