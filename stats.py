@@ -55,7 +55,7 @@ def remove_outliers(df):
     abs_z_scores = np.abs(z_scores)
     filtered_entries = (abs_z_scores < 3)
     new_df = df[filtered_entries]
-    cond = df.isin(new)
+    cond = df.isin(new_df)
     df2 = df.drop(df[cond].index)
     return new_df, df2
 
