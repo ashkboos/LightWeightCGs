@@ -75,7 +75,7 @@ df = pd.DataFrame(dict(mean=[accuracy['precision'].mean(), accuracy['recall'].me
 print(df.to_latex(index = True, index_names= True))
 
 
-overall_fair = overall[(overall['mergeEdges'] != -1) & (overall['opalEdges'] != -1)]
+overall_fair = overall[(overall['opalTime'] != 0) & (overall['mergeTime'] != 0)]
 
 print("####### Edge Comparison ####### \n ")
 mean_median_std(overall_fair, 'mergeEdges')
