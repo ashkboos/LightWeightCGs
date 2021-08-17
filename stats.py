@@ -143,7 +143,6 @@ fig, (ax1) = plt.subplots(nrows=1, ncols=3, sharey=False)
 new, outliers = remove_outliers(input_data['depNum'])
 ax1[0].boxplot(input_data['depNum'])
 print("depNum %s" % len(outliers))
-outliers.set_option("display.max_rows", None, "display.max_columns", None)
 print(outliers)
 ax1[0].set_title('Dependencies')
 
