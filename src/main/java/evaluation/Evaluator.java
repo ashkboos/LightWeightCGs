@@ -30,6 +30,7 @@ import eu.fasten.core.data.JavaScope;
 import eu.fasten.core.data.MergedDirectedGraph;
 import eu.fasten.core.data.opal.MavenCoordinate;
 
+import eu.fasten.core.data.opal.exceptions.MissingArtifactException;
 import eu.fasten.core.data.utils.DirectedGraphDeserializer;
 import eu.fasten.core.data.utils.DirectedGraphSerializer;
 import eu.fasten.core.merge.CallGraphUtils;
@@ -37,6 +38,7 @@ import it.unimi.dsi.fastutil.Pair;
 import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
 import it.unimi.dsi.fastutil.ints.IntIntPair;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
@@ -51,6 +53,8 @@ import eu.fasten.analyzer.javacgopal.data.CallGraphConstructor;
 import eu.fasten.analyzer.javacgopal.data.PartialCallGraph;
 import eu.fasten.core.data.ExtendedRevisionJavaCallGraph;
 import eu.fasten.core.merge.CGMerger;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import me.tongfei.progressbar.ProgressBar;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.ArrayUtils;
@@ -100,8 +104,48 @@ public class Evaluator {
                 StatCounter.writeToCSV(buildDataCSV(part), args[3]+"/chunk.p"+i+".csv");
             }
             logger.info("Wrote resolved data into file successfully!");
+        }else if(args[0].equals("--inputDemography")){
+            inputDemography(args[1], args[2]);
         }
 
+    }
+
+    public static void inputDemography(final String inputPath, final String outputPath)
+        throws IOException {
+        final var data = readResolvedDataCSV(inputPath);
+        Map<String, List<Integer>> result = new HashMap<>();
+        int counter = 0;
+        for (final var entry : data.entrySet()) {
+            int fileCounter = 0;
+            int withoutDeps = 0;
+            List<MavenCoordinate> value = entry.getValue();
+            for (int i = 0; i < value.size(); i++) {
+                MavenCoordinate coord = value.get(i);
+                try {
+                    final var file = new MavenCoordinate.MavenResolver().downloadArtifact(coord, "jar");
+                    ZipInputStream is =
+                        new ZipInputStream(new FileInputStream(file.getAbsolutePath()));
+                    ZipEntry ze;
+                    while ((ze = is.getNextEntry()) != null) {
+                        if (!ze.isDirectory()) {
+                            fileCounter++;
+                        }
+                    }
+                    if (i==0) {
+                        withoutDeps = fileCounter;
+                    }
+                    is.close();
+                    file.delete();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            System.out.println("\n\n ################################ Coord number : "+ counter);
+            counter ++;
+            result.put(entry.getKey().getCoordinate(), Arrays.asList(entry.getValue().size(),
+                withoutDeps, fileCounter));
+        }
+        StatCounter.writeToCSV(InputDemography.buildCSV(result), outputPath);
     }
 
     private static List<Map<MavenCoordinate, List<MavenCoordinate>>> splitToChunks(Map<MavenCoordinate, List<MavenCoordinate>> multiDeps, String chunkNum) {

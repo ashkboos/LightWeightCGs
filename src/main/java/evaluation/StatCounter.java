@@ -535,7 +535,9 @@ public class StatCounter {
         long mergeTotalTime = 0;
 
         for (final var depCoord : resolvedData.get(coord)) {
-            cgPoolTotalTime = cgPoolTotalTime + cgPoolStats.get(depCoord).time;
+            if (cgPoolStats.get(depCoord) != null) {
+                cgPoolTotalTime = cgPoolTotalTime + cgPoolStats.get(depCoord).time;
+            }
         }
         for (final var merge : mergeStats.get(coord)) {
             mergeTotalTime = mergeTotalTime + merge.time;
