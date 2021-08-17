@@ -35,6 +35,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -55,12 +56,12 @@ public class StatCounter {
 
 
     public StatCounter() {
-        UCHTime = new HashMap<>();
-        cgPoolStats = new HashMap<>();
-        opalStats = new HashMap<>();
-        mergeStats = new HashMap<>();
-        accuracy = new HashMap<>();
-        logs = new HashMap<>();
+        UCHTime = new ConcurrentHashMap<>();
+        cgPoolStats = new ConcurrentHashMap<>();
+        opalStats = new ConcurrentHashMap<>();
+        mergeStats = new ConcurrentHashMap<>();
+        accuracy = new ConcurrentHashMap<>();
+        logs = new ConcurrentHashMap<>();
     }
 
     public void addAccuracy(final MavenCoordinate toMerge,
@@ -534,15 +535,21 @@ public class StatCounter {
         long cgPoolTotalTime = 0;
         long mergeTotalTime = 0;
 
-        for (final var depCoord : resolvedData.get(coord)) {
-            if (cgPoolStats.get(depCoord) != null) {
-                cgPoolTotalTime = cgPoolTotalTime + cgPoolStats.get(depCoord).time;
+        try {
+            for (final var depCoord : resolvedData.get(coord)) {
+                if (cgPoolStats.get(depCoord) != null) {
+                    if (cgPoolStats.get(depCoord).time != null) {
+                        cgPoolTotalTime = cgPoolTotalTime + cgPoolStats.get(depCoord).time;
+                    }
+                }
+            }
+            for (final var merge : mergeStats.get(coord)) {
+                mergeTotalTime = mergeTotalTime + merge.time;
             }
         }
-        for (final var merge : mergeStats.get(coord)) {
-            mergeTotalTime = mergeTotalTime + merge.time;
+        catch (Exception e){
+            logger.error("Exception occurred", e);
         }
-
         return ImmutablePair.of(mergeTotalTime, cgPoolTotalTime);
 
     }

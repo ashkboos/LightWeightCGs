@@ -185,18 +185,27 @@ public class Evaluator {
         logger.info("Start analyzing directory...");
         final var statCounter = new StatCounter();
         final Map<MavenCoordinate, List<MavenCoordinate>> depTree = new HashMap<>();
-        int counter = 0;
-        for (final var pckg : Objects.requireNonNull(new File(rootPath).listFiles())) {
+        final int[] counter = {0};
+        Arrays.stream(Objects.requireNonNull(new File(rootPath).listFiles())).parallel().forEach(pckg -> {
             final var opal = getFile(pckg, "opal")[0];
             final var merge = getFile(pckg, "merge")[0];
-            final var opalCG = getOpalCG(opal);
+            Pair<DirectedGraph, Map<Long, String>> opalCG = null;
+            try {
+                opalCG = getOpalCG(opal);
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
             final var depEntry = updateStatCounter(merge, opal, statCounter);
             if (depEntry != null) {
                 depTree.put(depEntry.left(), depEntry.right());
             }
             Pair<DirectedGraph, Map<Long, String>> mergedCG = null;
             if (opalCG != null) {
-                mergedCG = getMergedCGs(merge);
+                try {
+                    mergedCG = getMergedCGs(merge);
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                }
             }
             logger.info("opal and merge are in memory!");
             MavenCoordinate coord;
@@ -210,9 +219,9 @@ public class Evaluator {
                     calcPrecisionRecall(groupBySource(compareMergeOPAL(mergedCG, opalCG))));
             }
             System.gc();
-            logger.info("pckg number :{}", counter);
-            counter++;
-        }
+            logger.info("pckg number :{}", counter[0]);
+            counter[0]++;
+        });
         statCounter.concludeMerge(outPath);
         statCounter.concludeOpal(depTree, outPath);
         statCounter.concludeLogs(outPath);
