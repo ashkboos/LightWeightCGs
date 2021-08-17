@@ -26,17 +26,14 @@ import ch.qos.logback.classic.Level;
 import eu.fasten.analyzer.javacgopal.Main;
 
 import eu.fasten.core.data.DirectedGraph;
-import eu.fasten.core.data.JavaScope;
 import eu.fasten.core.data.MergedDirectedGraph;
 import eu.fasten.core.data.opal.MavenCoordinate;
 
-import eu.fasten.core.data.opal.exceptions.MissingArtifactException;
 import eu.fasten.core.data.utils.DirectedGraphDeserializer;
 import eu.fasten.core.data.utils.DirectedGraphSerializer;
 import eu.fasten.core.merge.CallGraphUtils;
 import it.unimi.dsi.fastutil.Pair;
 import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
-import it.unimi.dsi.fastutil.ints.IntIntPair;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -79,40 +76,58 @@ public class Evaluator {
         root.setLevel(Level.INFO);
 
         System.setProperty("org.jline.terminal.dumb", "true");
-        if (args[0].equals("--oneTest")) {
-            generateSingleFeature(new File(args[1]));
-        } else if (args[0].equals("--allTests")) {
-            generateAllFeatures(new File(args[1]));
-        } else if (args[0].equals("--compare")) {
-            measureAllStats(readResolvedDataCSV(args[1]), args[2], Integer.parseInt(args[3]));
-        } else if (args[0].equals("--resolve")) {
-            final var resolvedData = resolveAll(dropTheHeader(readCSVColumn(args[1], 0)));
-            StatCounter.writeToCSV(buildDataCSV(resolvedData), args[2]);
-            logger.info("Wrote resolved data into file successfully!");
-        }else if (args[0].equals("--opal")){
-            writeOpalToFolder(args[1], args[2]);
-        }else if(args[0].equals("--merge")){
-            writeMergeToFolder(args[1], args[2]);
-        }else if (args[0].equals("--fromFiles")){
-            analyzeDir(args[1], args[2]);
-        }else if(args[0].equals("--splitInput")){
-            final var data = readResolvedDataCSV(args[1]);
-            final var multiDeps = removeOnlyOnedeps(data);
-            final var splitted = splitToChunks(multiDeps, args[2]);
-            for (int i = 0; i < splitted.size(); i++) {
-                final var part = splitted.get(i);
-                StatCounter.writeToCSV(buildDataCSV(part), args[3]+"/chunk.p"+i+".csv");
-            }
-            logger.info("Wrote resolved data into file successfully!");
-        }else if(args[0].equals("--inputDemography")){
-            inputDemography(args[1], args[2]);
+        switch (args[0]) {
+            case "--oneTest":
+                generateSingleFeature(new File(args[1]), args[2]);
+                break;
+            case "--allTests":
+                generateAllFeatures(new File(args[1]), args[2]);
+                break;
+            case "--compare":
+                measureAll(readResolvedCSV(args[1]), args[2], Integer.parseInt(args[3]), args[4]);
+                break;
+            case "--resolve":
+                resolveDependencies(args[1], args[2]);
+                break;
+            case "--opal":
+                writeOpalToFolder(args[1], args[2], args[3]);
+                break;
+            case "--merge":
+                writeMergeToFolder(args[1], args[2], args[3]);
+                break;
+            case "--fromFiles":
+                analyzeDir(args[1], args[2]);
+                break;
+            case "--splitInput":
+                splitInput(args[1], args[2], args[3]);
+                break;
+            case "--inputDemography":
+                inputDemography(args[1], args[2]);
+                break;
         }
+    }
 
+    private static void resolveDependencies(String input, String output) throws IOException {
+        final var resolvedData = resolveAll(dropTheHeader(readCSVColumn(input, 0)));
+        StatCounter.writeToCSV(buildDataCSV(resolvedData), output);
+        logger.info("Wrote resolved data into file successfully!");
+    }
+
+    private static void splitInput(final String inputPath, final String chunkNum,
+                                   final String resultPath) throws IOException {
+        final var data = readResolvedCSV(inputPath);
+        final var multiDeps = removeOnlyOnedeps(data);
+        final var splitted = splitToChunks(multiDeps, chunkNum);
+        for (int i = 0; i < splitted.size(); i++) {
+            final var part = splitted.get(i);
+            StatCounter.writeToCSV(buildDataCSV(part), resultPath + "/chunk.p" + i + ".csv");
+        }
+        logger.info("Wrote resolved data into file successfully!");
     }
 
     public static void inputDemography(final String inputPath, final String outputPath)
         throws IOException {
-        final var data = readResolvedDataCSV(inputPath);
+        final var data = readResolvedCSV(inputPath);
         Map<String, List<Integer>> result = new HashMap<>();
         int counter = 0;
         for (final var entry : data.entrySet()) {
@@ -375,21 +390,23 @@ public class Evaluator {
         return deserializer.jsonToGraph(new JSONObject(tokener).toString());
     }
 
-    private static void writeMergeToFolder(final String row, final String path) throws IOException {
+    private static void writeMergeToFolder(final String row, final String path,
+                                           final String algorithm) throws IOException {
         final var statCounter = new StatCounter();
         final var coords = getCoordinates(row);
         final var rcg = mergeRecord(Map.of(coords.getKey(), coords.getValue()), statCounter,
-            new HashMap<>(), coords.getKey());
+            new HashMap<>(), coords.getKey(), algorithm);
             final var ser = new DirectedGraphSerializer();
             CallGraphUtils.writeToFile(path, ser.graphToJson(rcg.first(), rcg.second()),
                 "/cg.json");
         statCounter.concludeMerge(path);
     }
 
-    private static void writeOpalToFolder(final String row, final String path) throws IOException {
+    private static void writeOpalToFolder(final String row, final String path,
+                                          final String algorithm) throws IOException {
         final var statCounter = new StatCounter();
         final var coords = getCoordinates(row);
-        final var rcg = generateForOPAL(statCounter, coords);
+        final var rcg = generateForOPAL(statCounter, coords, algorithm);
         final var ser = new DirectedGraphSerializer();
         if (rcg != null) {
             CallGraphUtils.writeToFile(path+"/cg.json", ser.graphToJson(rcg.first(), rcg.second()), "");
@@ -406,7 +423,7 @@ public class Evaluator {
         return Map.entry(MavenCoordinate.fromString(splitedRow[1], "jar"), deps);
     }
 
-    public static void generateAllFeatures(final File testCasesDirectory) throws IOException {
+    public static void generateAllFeatures(final File testCasesDirectory, final String algorithm) throws IOException {
         final var splitJars = testCasesDirectory.listFiles(f -> f.getPath().endsWith("_split"));
         var counter = 0;
         assert splitJars != null;
@@ -417,9 +434,9 @@ public class Evaluator {
             counter += 1;
             logger.info("\n Processing {} -> {}", langFeature.getName(), counter + "/" + tot);
             final String main = extractMain(langFeature);
-            generateOpal(langFeature, main, "CHA", "cg/opalV3");
+            generateOpal(langFeature, main, algorithm, "cg/opalV3");
 
-            if (!merge(langFeature, main, "CHA", "CHA", "cg/mergeV3")) {
+            if (!merge(langFeature, main, algorithm, algorithm, "cg/mergeV3")) {
                 singleClass++;
             }
         }
@@ -427,16 +444,17 @@ public class Evaluator {
             .info("There was #{} single class language features we couldn't merge! ", singleClass);
     }
 
-    public static void generateSingleFeature(final File testCaseDirectory) throws IOException {
+    public static void generateSingleFeature(final File testCaseDirectory,
+                                             final String algorithm) throws IOException {
         final String main = extractMain(testCaseDirectory);
-        generateOpal(testCaseDirectory, main, "RTA", "cg/opalV3");
-        merge(testCaseDirectory, main, "RTA", "CHA", "cg/mergeV3");
+        generateOpal(testCaseDirectory, main, algorithm, "cg/opalV3");
+        merge(testCaseDirectory, main, algorithm, algorithm, "cg/mergeV3");
     }
 
-    private static void measureAllStats(
+    private static void measureAll(
         final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
         final String outPath,
-        final int threshold)
+        final int threshold, final String algorithm)
         throws IOException, NoSuchFieldException, IllegalAccessException {
 
         final var statCounter = new StatCounter();
@@ -449,7 +467,7 @@ public class Evaluator {
             logger.info("Number of redundant packages is less than threshold #{}", threshold);
 
         } else {
-            runOPALandMerge(resolvedData, statCounter);
+            runOPALandMerge(resolvedData, statCounter, algorithm);
 
             statCounter.concludeMerge(outPath);
             statCounter.concludeOpal(resolvedData, outPath);
@@ -459,7 +477,7 @@ public class Evaluator {
     }
 
     private static void runOPALandMerge(final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
-                                        final StatCounter statCounter) {
+                                        final StatCounter statCounter, final String algorithm) {
         final Map<MavenCoordinate, Set<MavenCoordinate>> remainedDependents = getDependents(resolvedData);
         final Map<MavenCoordinate, ExtendedRevisionJavaCallGraph> cgPool = new HashMap<>();
         ProgressBar pb = new ProgressBar("Measuring stats", resolvedData.entrySet().size());
@@ -468,7 +486,7 @@ public class Evaluator {
         for (final var row : resolvedData.entrySet()) {
             final var toMerge = row.getKey();
             final Pair<DirectedGraph, Map<Long, String>> merge =
-                mergeRecord(resolvedData, statCounter, cgPool, toMerge);
+                mergeRecord(resolvedData, statCounter, cgPool, toMerge, algorithm);
             pb.step();
             for (final var dep : resolvedData.get(toMerge)) {
                 if ( remainedDependents.get(dep) != null) {
@@ -479,7 +497,7 @@ public class Evaluator {
                     }
                 }
             }
-            final var opal = generateForOPAL(statCounter, row);
+            final var opal = generateForOPAL(statCounter, row, algorithm);
             if(opal!= null && merge != null ) {
                 statCounter.addAccuracy(toMerge,
                     calcPrecisionRecall(groupBySource(compareMergeOPAL(merge, opal))));
@@ -493,10 +511,10 @@ public class Evaluator {
     private static Pair<DirectedGraph, Map<Long, String>> mergeRecord(
         final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData, StatCounter statCounter,
         final Map<MavenCoordinate, ExtendedRevisionJavaCallGraph> cgPool,
-        final MavenCoordinate toMerge) {
+        final MavenCoordinate toMerge, final String algorithm) {
         for (final var dep : resolvedData.get(toMerge)) {
             if (!cgPool.containsKey(dep)) {
-                addToCGPool(statCounter, cgPool, dep);
+                addToCGPool(statCounter, cgPool, dep, algorithm);
             }
         }
 
@@ -731,7 +749,8 @@ public class Evaluator {
 
 
     private static Pair<DirectedGraph, Map<Long, String>> generateForOPAL(StatCounter statCounter,
-                                        Map.Entry<MavenCoordinate, List<MavenCoordinate>> row) {
+                                        Map.Entry<MavenCoordinate, List<MavenCoordinate>> row,
+                                                                          String algorithm) {
         ExtendedRevisionJavaCallGraph rcg = null;
         DirectedGraph dcg = new MergedDirectedGraph();
 
@@ -746,7 +765,7 @@ public class Evaluator {
             for (int i = 0; i < warmUp + iterations ; i++) {
                 if (i > warmUp) {
                     final long startTime = System.currentTimeMillis();
-                    opalCg = new CallGraphConstructor(tempDir, "", "CHA");
+                    opalCg = new CallGraphConstructor(tempDir, "", algorithm);
                     times.add(System.currentTimeMillis() - startTime);
                 }
             }
@@ -811,7 +830,7 @@ public class Evaluator {
 
     private static Map<MavenCoordinate, ExtendedRevisionJavaCallGraph> buildUpCGPool(
         final Map<MavenCoordinate, List<MavenCoordinate>> dataSet, final StatCounter statCounter,
-        final Integer uniqueCoords) {
+        final Integer uniqueCoords, final String algorithm) {
 
         ProgressBar pb = new ProgressBar("Creating CGPool", uniqueCoords);
         pb.start();
@@ -819,7 +838,7 @@ public class Evaluator {
         Map<MavenCoordinate, ExtendedRevisionJavaCallGraph> result = new HashMap<>();
         for (final var row : dataSet.entrySet()) {
             for (final var coord : row.getValue()) {
-                addToCGPool(statCounter, result, coord);
+                addToCGPool(statCounter, result, coord, algorithm);
                 pb.step();
             }
 
@@ -830,7 +849,8 @@ public class Evaluator {
 
     private static void addToCGPool(final StatCounter statCounter,
                                     final Map<MavenCoordinate, ExtendedRevisionJavaCallGraph> cgPool,
-                                    final MavenCoordinate dep) {
+                                    final MavenCoordinate dep,
+                                    final String algorithm) {
         if (!cgPool.containsKey(dep)) {
             try {
                 logger.info("\n ##############\n Adding {} to cg pool!",
@@ -838,7 +858,7 @@ public class Evaluator {
                 final var file = new MavenCoordinate.MavenResolver().downloadArtifact(dep, "jar");
 
                 final long startTime = System.currentTimeMillis();
-                final var opalCG = new CallGraphConstructor(file, "", "CHA");
+                final var opalCG = new CallGraphConstructor(file, "", algorithm);
                 final var cg = new PartialCallGraph(opalCG, true);
                 final var rcg = ExtendedRevisionJavaCallGraph.extendedBuilder()
                     .graph(cg.getGraph())
@@ -979,7 +999,7 @@ public class Evaluator {
         Main.main(convertCommand);
     }
 
-    public static Map<MavenCoordinate, List<MavenCoordinate>> readResolvedDataCSV(
+    public static Map<MavenCoordinate, List<MavenCoordinate>> readResolvedCSV(
         final String inputPath) throws IOException {
 
         Map<MavenCoordinate, List<MavenCoordinate>> result = new HashMap<>();
