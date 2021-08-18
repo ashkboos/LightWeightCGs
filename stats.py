@@ -80,8 +80,8 @@ print(df.to_latex(index = True, index_names= True))
 overall_fair = overall[(overall['opalTime'] != 0) & (overall['mergeTime'] != 0)]
 
 print("####### Edge Comparison ####### \n ")
-mean_median_std(overall_fair, 'mergeEdges')
-mean_median_std(overall_fair, 'opalEdges')
+mean_median_std(overall_fair['mergeEdges'], 'mergeEdges')
+mean_median_std(overall_fair['opalEdges'], 'opalEdges')
 
 print("merge edges: %d" %(overall_fair['mergeEdges'].sum()))
 print("opal edges: %d" %(overall_fair['mergeEdges'].sum()))
