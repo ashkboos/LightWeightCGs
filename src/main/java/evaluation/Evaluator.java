@@ -397,8 +397,10 @@ public class Evaluator {
         final var rcg = mergeRecord(Map.of(coords.getKey(), coords.getValue()), statCounter,
             new HashMap<>(), coords.getKey(), algorithm);
             final var ser = new DirectedGraphSerializer();
+        if (rcg != null) {
             CallGraphUtils.writeToFile(path, ser.graphToJson(rcg.first(), rcg.second()),
                 "/cg.json");
+        }
         statCounter.concludeMerge(path);
     }
 

@@ -1,15 +1,16 @@
 #!/bin/bash
 i=0
-mkdir $2-$3
+folder=$($2-$3)
+mkdir
 while IFS= read -r line; do
   if [ $i -ne 0 ]; then
     coord="$(echo $line | cut -d',' -f2)"
-    mkdir $2/$coord
-    mkdir $2/$coord/opal
-    mkdir $2/$coord/merge
+    mkdir $folder/$coord
+    mkdir $folder/$coord/opal
+    mkdir $folder/$coord/merge
     echo "Generating graphs for "$coord" package..."
-    java -jar runnable/LightWeightCGs-1.0-SNAPSHOT-with-dependencies.jar --opal "$line" $2/$coord/opal $3 -Xmx14g > $2/$coord/opal/log
-    java -jar runnable/LightWeightCGs-1.0-SNAPSHOT-with-dependencies.jar --merge "$line" $2/$coord/merge $3 -Xmx14g > $2/$coord/merge/log
+    java -jar runnable/LightWeightCGs-1.0-SNAPSHOT-with-dependencies.jar --opal "$line" $folder/$coord/opal $3 -Xmx14g > $folder/$coord/opal/log
+    java -jar runnable/LightWeightCGs-1.0-SNAPSHOT-with-dependencies.jar --merge "$line" $folder/$coord/merge $3 -Xmx14g > $folder/$coord/merge/log
   fi
   ((i = i + 1))
 done <"$1"

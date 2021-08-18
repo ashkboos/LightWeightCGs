@@ -92,9 +92,10 @@ df = pd.DataFrame(dict(mean=[overall_fair['mergeTime'].mean(), overall_fair['opa
                   median=[overall_fair['mergeTime'].median(), overall_fair['opalTime'].median(), overall_fair['cgPool'].median()]))
 
 print(df.to_latex(index = True, index_names= True))
-
+merge = overall_fair['mergeTime']+overall_fair['UCHTime']
+merge['mergeTime'] = merge
 mean_median_std(overall_fair, 'mergeTime')
-mean_median_std(overall_fair, 'UCHTime')
+# mean_median_std(overall_fair, 'UCHTime')
 mean_median_std(overall_fair, 'opalTime')
 
 
@@ -125,7 +126,7 @@ print("####### Time Comparison ####### \n ")
 fig, (ax1) = plt.subplots(nrows=1, ncols=3, sharey=True)
 ax1[0].violinplot(overall_fair['opalTime'], showmedians=True)
 ax1[1].violinplot(overall_fair['cgPool'], showmedians=True)
-ax1[2].violinplot(overall_fair['mergeTime']+overall_fair['UCHTime'], showmedians=True)
+ax1[2].violinplot(merge['mergeTime'], showmedians=True)
 ax1[0].set_title('opal')
 ax1[1].set_title('CG Cache')
 ax1[2].set_title('Stitching')
