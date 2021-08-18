@@ -28,9 +28,9 @@ input_data = pd.read_csv(root+"inputStats.csv")
 
 
 def mean_median_std(data, field):
-    print("mean of %s: %f" %( field, data[field].mean()))
-    print("std of %s: %f" %( field, data[field].std()))
-    print("median of %s: %f" %( field, data[field].median()))
+    print("mean of %s: %f" %( field, data.mean()))
+    print("std of %s: %f" %( field, data.std()))
+    print("median of %s: %f" %( field, data.median()))
     print('\n')
     
 def violin(data, field, path):
@@ -64,11 +64,11 @@ def remove_outliers(df):
 
 
 print("####### Accuracy Comparison ####### \n ")
-mean_median_std(accuracy, 'precision')
-mean_median_std(accuracy, 'recall')
-mean_median_std(accuracy, 'OPAL')
-mean_median_std(accuracy, 'Merge')
-mean_median_std(accuracy, 'intersection')
+mean_median_std(accuracy['precision'], 'precision')
+mean_median_std(accuracy['recall'], 'recall')
+mean_median_std(accuracy['OPAL'], 'OPAL')
+mean_median_std(accuracy['Merge'], 'Merge')
+mean_median_std(accuracy['intersection'], 'intersection')
 
 df = pd.DataFrame(dict(mean=[accuracy['precision'].mean(), accuracy['recall'].mean()],
                   std=[accuracy['precision'].std(), accuracy['recall'].std()],
@@ -93,10 +93,9 @@ df = pd.DataFrame(dict(mean=[overall_fair['mergeTime'].mean(), overall_fair['opa
 
 print(df.to_latex(index = True, index_names= True))
 merge = overall_fair['mergeTime']+overall_fair['UCHTime']
-merge['mergeTime'] = merge
-mean_median_std(overall_fair, 'mergeTime')
+mean_median_std(merge, "merge")
 # mean_median_std(overall_fair, 'UCHTime')
-mean_median_std(overall_fair, 'opalTime')
+mean_median_std(overall_fair['opalTime'], 'opal')
 
 
 # In[16]:
