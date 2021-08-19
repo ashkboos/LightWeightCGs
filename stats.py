@@ -21,7 +21,7 @@ if not path.exists(directory):
 accuracy = pd.read_csv(root+"accuracy.csv")
 overall = pd.read_csv(root+"Overall.csv")
 overall = overall[~overall['opalTime'].isna()]
-input_data = pd.read_csv(root+"inputStats.csv")
+# input_data = pd.read_csv(root+"inputStats.csv")
 
 
 # In[3]:
@@ -137,39 +137,39 @@ plt.close()
 # In[17]:
 
 
-print("####### Input Data ####### \n ")
-fig, (ax1) = plt.subplots(nrows=1, ncols=3, sharey=False)
-
-new, outliers = remove_outliers(input_data['depNum'])
-ax1[0].boxplot(new)
-print("depNum %s" % len(outliers))
-print(outliers)
-ax1[0].set_title('Dependencies')
-
-new, outliers = remove_outliers(input_data['numFiles'])
-ax1[1].boxplot(new)
-print("numFiles %s" % len(outliers))
-print(outliers)
-ax1[1].set_title('Files')
-
-new, outliers = remove_outliers(input_data['numFilesWithDeps'])
-ax1[2].boxplot(new)
-print("numFileWithDeps %s" % len(outliers))
-print(outliers)
-ax1[2].set_title('Files with deps')
-
-fig.tight_layout(pad=1)
-plt.savefig(directory+'/input.pdf')
-# plt.show()
-plt.close()
-
-
-# In[18]:
-
-
-print("depNum: %s"%input_data['depNum'].mean())
-print("numFiles: %s"%input_data['numFiles'].mean())
-print("numFilesWithDeps: %s"%input_data['numFilesWithDeps'].mean())
+# print("####### Input Data ####### \n ")
+# fig, (ax1) = plt.subplots(nrows=1, ncols=3, sharey=False)
+#
+# new, outliers = remove_outliers(input_data['depNum'])
+# ax1[0].boxplot(new)
+# print("depNum %s" % len(outliers))
+# print(outliers)
+# ax1[0].set_title('Dependencies')
+#
+# new, outliers = remove_outliers(input_data['numFiles'])
+# ax1[1].boxplot(new)
+# print("numFiles %s" % len(outliers))
+# print(outliers)
+# ax1[1].set_title('Files')
+#
+# new, outliers = remove_outliers(input_data['numFilesWithDeps'])
+# ax1[2].boxplot(new)
+# print("numFileWithDeps %s" % len(outliers))
+# print(outliers)
+# ax1[2].set_title('Files with deps')
+#
+# fig.tight_layout(pad=1)
+# plt.savefig(directory+'/input.pdf')
+# # plt.show()
+# plt.close()
+#
+#
+# # In[18]:
+#
+#
+# print("depNum: %s"%input_data['depNum'].mean())
+# print("numFiles: %s"%input_data['numFiles'].mean())
+# print("numFilesWithDeps: %s"%input_data['numFilesWithDeps'].mean())
 
 
 # In[19]:
