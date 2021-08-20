@@ -1,7 +1,7 @@
 #!/bin/bash
 i=0
 folder=$($2-$3)
-mkdir
+mkdir $folder
 while IFS= read -r line; do
   if [ $i -ne 0 ]; then
     coord="$(echo $line | cut -d',' -f2)"
