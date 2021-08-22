@@ -43,6 +43,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 
@@ -199,7 +200,7 @@ public class Evaluator {
         throws IOException, NoSuchFieldException, IllegalAccessException {
         logger.info("Start analyzing directory...");
         final var statCounter = new StatCounter();
-        final Map<MavenCoordinate, List<MavenCoordinate>> depTree = new HashMap<>();
+        final Map<MavenCoordinate, List<MavenCoordinate>> depTree = new ConcurrentHashMap<>();
         final int[] counter = {0};
         Arrays.stream(Objects.requireNonNull(new File(rootPath).listFiles())).parallel().forEach(pckg -> {
             final var opal = getFile(pckg, "opal")[0];
