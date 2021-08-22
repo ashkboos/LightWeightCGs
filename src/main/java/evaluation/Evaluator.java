@@ -202,7 +202,7 @@ public class Evaluator {
         logger.info("Start analyzing directory...");
         final var statCounter = new StatCounter();
         final Map<MavenCoordinate, List<MavenCoordinate>> depTree = new ConcurrentHashMap<>();
-        AtomicInteger counter = new AtomicInteger(0);
+//        AtomicInteger counter = new AtomicInteger(0);
         Arrays.stream(Objects.requireNonNull(new File(rootPath).listFiles())).parallel().forEach(pckg -> {
             final var opal = getFile(pckg, "opal")[0];
             final var merge = getFile(pckg, "merge")[0];
@@ -236,7 +236,7 @@ public class Evaluator {
                     calcPrecisionRecall(groupBySource(compareMergeOPAL(mergedCG, opalCG))));
             }
             System.gc();
-            logger.info("pckg number :{}", counter.getAndAdd(1));
+//            logger.info("pckg number :{}", counter.getAndAdd(1));
         });
         statCounter.concludeMerge(outPath);
         statCounter.concludeOpal(depTree, outPath);
