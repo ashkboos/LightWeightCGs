@@ -212,28 +212,30 @@ public class Evaluator {
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
             }
-            final var depEntry = updateStatCounter(merge, opal, statCounter);
-            if (depEntry != null) {
-                depTree.put(depEntry.left(), depEntry.right());
-            }
-            Pair<DirectedGraph, Map<Long, String>> mergedCG = null;
-            if (opalCG != null) {
-                try {
-                    mergedCG = getMergedCGs(merge);
-                } catch (FileNotFoundException e) {
-                    e.printStackTrace();
-                }
-            }
-            logger.info("opal and merge are in memory!");
-            MavenCoordinate coord;
-            if(mergedCG != null) {
+            synchronized (statCounter) {
+                final var depEntry = updateStatCounter(merge, opal, statCounter);
                 if (depEntry != null) {
-                    coord = depEntry.left();
-                }else {
-                    coord = MavenCoordinate.fromString("", "jar");
+                    depTree.put(depEntry.left(), depEntry.right());
                 }
-                statCounter.addAccuracy(coord,
-                    calcPrecisionRecall(groupBySource(compareMergeOPAL(mergedCG, opalCG))));
+                Pair<DirectedGraph, Map<Long, String>> mergedCG = null;
+                if (opalCG != null) {
+                    try {
+                        mergedCG = getMergedCGs(merge);
+                    } catch (FileNotFoundException e) {
+                        e.printStackTrace();
+                    }
+                }
+                logger.info("opal and merge are in memory!");
+                MavenCoordinate coord;
+                if (mergedCG != null) {
+                    if (depEntry != null) {
+                        coord = depEntry.left();
+                    } else {
+                        coord = MavenCoordinate.fromString("", "jar");
+                    }
+                    statCounter.addAccuracy(coord,
+                        calcPrecisionRecall(groupBySource(compareMergeOPAL(mergedCG, opalCG))));
+                }
             }
             System.gc();
 //            logger.info("pckg number :{}", counter.getAndAdd(1));
