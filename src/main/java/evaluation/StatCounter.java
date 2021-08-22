@@ -129,22 +129,22 @@ public class StatCounter {
     }
 
     public static class SourceStats {
-//        final private String source;
+        final private String source;
         final private double precision;
         final private double recall;
-//        final private int OPAL;
-//        final private int merge;
-//        final private int intersect;
+        final private int OPAL;
+        final private int merge;
+        final private int intersect;
 
         public SourceStats(final String source, final double precision, final double recall,
                            final int OPAL,
                            final int merge, final int intersect) {
-//            this.source = source;
+            this.source = source;
             this.precision = precision;
             this.recall = recall;
-//            this.OPAL = OPAL;
-//            this.merge = merge;
-//            this.intersect = intersect;
+            this.OPAL = OPAL;
+            this.merge = merge;
+            this.intersect = intersect;
         }
     }
 
@@ -340,12 +340,12 @@ public class StatCounter {
             result.add(new String[] {
                 /* number */ String.valueOf(counter),
                 /* coordinate */ coord.getCoordinate(),
-//                /* source */ String.valueOf(sourceStat.source),
+                /* source */ String.valueOf(sourceStat.source),
                 /* precision */ String.valueOf(sourceStat.precision),
                 /* recall */ String.valueOf(sourceStat.recall),
-//                /* emptyOPAL */ String.valueOf(sourceStat.OPAL),
-//                /* emptyMerge */ String.valueOf(sourceStat.merge),
-//                /* emptyBoth */ String.valueOf(sourceStat.intersect),
+                /* emptyOPAL */ String.valueOf(sourceStat.OPAL),
+                /* emptyMerge */ String.valueOf(sourceStat.merge),
+                /* emptyBoth */ String.valueOf(sourceStat.intersect),
                 /* dependencies */ toString(resolvedData.get(coord))
             });
             counter++;
