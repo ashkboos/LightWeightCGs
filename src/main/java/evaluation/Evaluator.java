@@ -201,7 +201,7 @@ public class Evaluator {
         throws IOException, NoSuchFieldException, IllegalAccessException {
         logger.info("Start analyzing directory...");
         final var statCounter = new StatCounter();
-        final Map<MavenCoordinate, List<MavenCoordinate>> depTree = new ConcurrentHashMap<>();
+        final var depTree = new ConcurrentHashMap<MavenCoordinate, List<MavenCoordinate>>();
 //        AtomicInteger counter = new AtomicInteger(0);
         Arrays.stream(Objects.requireNonNull(new File(rootPath).listFiles())).parallel().forEach(pckg -> {
             final var opal = getFile(pckg, "opal")[0];
