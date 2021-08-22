@@ -209,7 +209,7 @@ public class Evaluator {
             Pair<DirectedGraph, Map<Long, String>> opalCG = null;
             try {
                 opalCG = getOpalCG(opal);
-            } catch (FileNotFoundException e) {
+            } catch (Exception e) {
                 e.printStackTrace();
             }
             final var resultOpal = getCSV(opal.getAbsolutePath()+"/resultOpal.csv");
@@ -226,7 +226,7 @@ public class Evaluator {
             if (opalCG != null) {
                 try {
                     mergedCG = getMergedCGs(merge);
-                } catch (FileNotFoundException e) {
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
@@ -251,7 +251,7 @@ public class Evaluator {
 
     }
 
-    private synchronized static Pair<MavenCoordinate, List<MavenCoordinate>> updateStatCounter(Optional<List<Map<String, String>>> resultOpal, File[] opalLog, Optional<List<Map<String, String>>> cgPool, Optional<List<Map<String, String>>> resultMerge, File[] mergeLog, File merge,
+    private static Pair<MavenCoordinate, List<MavenCoordinate>> updateStatCounter(Optional<List<Map<String, String>>> resultOpal, File[] opalLog, Optional<List<Map<String, String>>> cgPool, Optional<List<Map<String, String>>> resultMerge, File[] mergeLog, File merge,
                                                                                   File opal, StatCounter statCounter) {
         Pair<MavenCoordinate, List<MavenCoordinate>> depEntry = null;
         if (resultOpal.isPresent()) {
@@ -377,7 +377,9 @@ public class Evaluator {
         final var files = mergeFiles.listFiles((dir, name) -> name.toLowerCase().endsWith(
             "json"));
         if (files != null) {
-            return getRCG(files[0]);
+            if (files.length > 0) {
+                return getRCG(files[0]);
+            }
         }
         return null;
     }
