@@ -203,7 +203,7 @@ public class Evaluator {
         final var statCounter = new StatCounter();
         final var depTree = new ConcurrentHashMap<MavenCoordinate, List<MavenCoordinate>>();
         AtomicInteger counter = new AtomicInteger(0);
-        Arrays.stream(Objects.requireNonNull(new File(rootPath).listFiles())).forEach(pckg -> {
+        Arrays.stream(Objects.requireNonNull(new File(rootPath).listFiles())).parallel().forEach(pckg -> {
             final var opal = getFile(pckg, "opal")[0];
             final var merge = getFile(pckg, "merge")[0];
             Pair<DirectedGraph, Map<Long, String>> opalCG = null;
