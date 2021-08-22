@@ -212,30 +212,34 @@ public class Evaluator {
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
             }
-            synchronized (statCounter) {
-                final var depEntry = updateStatCounter(merge, opal, statCounter);
+            final var resultOpal = getCSV(opal.getAbsolutePath()+"/resultOpal.csv");
+            final var opalLog = getFile(opal, "log");
+            final var cgPool = getCSV(merge.getAbsolutePath()+ "/CGPool.csv");
+            final var resultMerge = getCSV(merge.getAbsolutePath()+"/Merge.csv");
+            final var mergeLog = getFile(merge, "log");
+            final var depEntry = updateStatCounter(resultOpal, opalLog, cgPool, resultMerge,
+                mergeLog, merge, opal, statCounter);
+            if (depEntry != null) {
+                depTree.put(depEntry.left(), depEntry.right());
+            }
+            Pair<DirectedGraph, Map<Long, String>> mergedCG = null;
+            if (opalCG != null) {
+                try {
+                    mergedCG = getMergedCGs(merge);
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                }
+            }
+            System.out.println("opal and merge are in memory!");
+            MavenCoordinate coord;
+            if (mergedCG != null) {
                 if (depEntry != null) {
-                    depTree.put(depEntry.left(), depEntry.right());
+                    coord = depEntry.left();
+                } else {
+                    coord = MavenCoordinate.fromString("", "jar");
                 }
-                Pair<DirectedGraph, Map<Long, String>> mergedCG = null;
-                if (opalCG != null) {
-                    try {
-                        mergedCG = getMergedCGs(merge);
-                    } catch (FileNotFoundException e) {
-                        e.printStackTrace();
-                    }
-                }
-                logger.info("opal and merge are in memory!");
-                MavenCoordinate coord;
-                if (mergedCG != null) {
-                    if (depEntry != null) {
-                        coord = depEntry.left();
-                    } else {
-                        coord = MavenCoordinate.fromString("", "jar");
-                    }
-                    statCounter.addAccuracy(coord,
-                        calcPrecisionRecall(groupBySource(compareMergeOPAL(mergedCG, opalCG))));
-                }
+                statCounter.addAccuracy(coord,
+                    calcPrecisionRecall(groupBySource(compareMergeOPAL(mergedCG, opalCG))));
             }
             System.gc();
 //            logger.info("pckg number :{}", counter.getAndAdd(1));
@@ -248,15 +252,8 @@ public class Evaluator {
 
     }
 
-    private static Pair<MavenCoordinate, List<MavenCoordinate>> updateStatCounter(final File merge,
-                                                                               final File opal,
-                                                                                  final StatCounter statCounter) {
-
-        final var resultOpal = getCSV(opal.getAbsolutePath()+"/resultOpal.csv");
-        final var opalLog = getFile(opal, "log");
-        final var cgPool = getCSV(merge.getAbsolutePath()+ "/CGPool.csv");
-        final var resultMerge = getCSV(merge.getAbsolutePath()+"/Merge.csv");
-        final var mergeLog = getFile(merge, "log");
+    private synchronized static Pair<MavenCoordinate, List<MavenCoordinate>> updateStatCounter(Optional<List<Map<String, String>>> resultOpal, File[] opalLog, Optional<List<Map<String, String>>> cgPool, Optional<List<Map<String, String>>> resultMerge, File[] mergeLog, File merge,
+                                                                                  File opal, StatCounter statCounter) {
         Pair<MavenCoordinate, List<MavenCoordinate>> depEntry = null;
         if (resultOpal.isPresent()) {
             if (!resultOpal.get().isEmpty()) {
