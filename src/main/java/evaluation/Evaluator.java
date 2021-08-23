@@ -76,7 +76,12 @@ public class Evaluator {
         var root = (ch.qos.logback.classic.Logger) LoggerFactory
             .getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
         root.setLevel(Level.INFO);
-
+        long heapSize = Runtime.getRuntime().totalMemory();
+        long heapMaxSize = Runtime.getRuntime().maxMemory();
+        long heapFreeSize = Runtime.getRuntime().freeMemory();
+        System.out.println("heap size is: "+ ((heapSize/1024)/1024)+ "mb");
+        System.out.println("max heap size is: "+ ((heapMaxSize/1024)/1024) + "mb");
+        System.out.println("free heap size is: "+ ((heapFreeSize/1024)/1024) + "mb");
         System.setProperty("org.jline.terminal.dumb", "true");
         switch (args[0]) {
             case "--oneTest":
