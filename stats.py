@@ -48,6 +48,22 @@ def remove_outliers(df):
     df2 = df.drop(df[cond].index)
     return new_df, df2
 
+print("####### Edge Comparison ####### \n ")
+mean_median_std(overall_fair['mergeEdges'], 'mergeEdges')
+mean_median_std(overall_fair['opalEdges'], 'opalEdges')
+print("merge edges: %d" %(overall_fair['mergeEdges'].sum()))
+print("opal edges: %d" %(overall_fair['opalEdges'].sum()))
+
+print("####### Edge Plot ####### \n ")
+fig, (ax1) = plt.subplots(nrows=1, ncols=2, sharey=True)
+mergeEdge = overall_fair[(overall_fair['mergeEdges']) !=0 & (overall_fair['mergeEdges'] != -1)]
+opalEdge = overall_fair[(overall_fair['opalEdges'] !=0) & (overall_fair['opalEdges'] != -1)]
+ax1[0].violinplot(np.log(mergeEdge), showmedians=True)
+ax1[1].violinplot(np.log(opalEdge), showmedians=True)
+ax1[0].set_title('Stitching edges')
+ax1[1].set_title('Opal edges')
+plt.savefig(directory+'/edgeComparison.pdf')
+plt.close()
 
 print("####### Success Rate ####### \n ")
 print("All : %s" %len(overall))
@@ -80,22 +96,7 @@ plt.savefig(directory+'/precisonRecall.pdf')
 plt.close()
 
 
-print("####### Edge Comparison ####### \n ")
-mean_median_std(overall_fair['mergeEdges'], 'mergeEdges')
-mean_median_std(overall_fair['opalEdges'], 'opalEdges')
-print("merge edges: %d" %(overall_fair['mergeEdges'].sum()))
-print("opal edges: %d" %(overall_fair['opalEdges'].sum()))
 
-print("####### Edge Plot ####### \n ")
-fig, (ax1) = plt.subplots(nrows=1, ncols=2, sharey=True)
-mergeEdge = overall_fair[(overall_fair['mergeEdges']) !=0 & (overall_fair['mergeEdges'] != -1)]
-opalEdge = overall_fair[(overall_fair['opalEdges'] !=0) & (overall_fair['opalEdges'] != -1)]
-ax1[0].violinplot(np.log(mergeEdge), showmedians=True)
-ax1[1].violinplot(np.log(opalEdge), showmedians=True)
-ax1[0].set_title('Stitching edges')
-ax1[1].set_title('Opal edges')
-plt.savefig(directory+'/edgeComparison.pdf')
-plt.close()
 
 
 print("####### Time Comparison ####### \n ")
