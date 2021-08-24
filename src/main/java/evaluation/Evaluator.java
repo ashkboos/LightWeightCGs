@@ -111,7 +111,15 @@ public class Evaluator {
             case "--inputDemography":
                 inputDemography(args[1], args[2]);
                 break;
+            case "--countPackages":
+                countPackages(readResolvedCSV(args[1]));
         }
+    }
+
+    private static void countPackages(Map<MavenCoordinate, List<MavenCoordinate>> resolvedData) {
+        final var uniquesCommons = countCommonCoordinates(resolvedData);
+        logger.info("#{} redundant packages and #{} unique packages, #{} all packages",
+            uniquesCommons.get(1), uniquesCommons.get(0), uniquesCommons.get(2));
     }
 
     private static void resolveDependencies(String input, String output) throws IOException {
@@ -468,10 +476,10 @@ public class Evaluator {
         final var statCounter = new StatCounter();
 
         final var uniquesCommons = countCommonCoordinates(resolvedData);
-        logger.info("#{} redundant packages and #{} unique packages", uniquesCommons.right(),
-            uniquesCommons.left());
+        logger.info("#{} redundant packages and #{} unique packages, #{} all packages",
+            uniquesCommons.get(1), uniquesCommons.get(0), uniquesCommons.get(2));
 
-        if (uniquesCommons.right() < threshold) {
+        if (uniquesCommons.get(1) < threshold) {
             logger.info("Number of redundant packages is less than threshold #{}", threshold);
 
         } else {
@@ -611,9 +619,10 @@ public class Evaluator {
         return dataLines;
     }
 
-    private static Pair<Integer, Integer> countCommonCoordinates(
+    private static List<Integer> countCommonCoordinates(
         final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData) {
         final HashSet<MavenCoordinate> uniqueCoords = new HashSet<>();
+        int all = 0;
         int counter = 0;
         for (final var coordList : resolvedData.values()) {
             for (final var coord : coordList) {
@@ -622,9 +631,10 @@ public class Evaluator {
                 } else {
                     uniqueCoords.add(coord);
                 }
+                all++;
             }
         }
-        return IntIntImmutablePair.of(uniqueCoords.size(), counter);
+        return new ArrayList<>(List.of(uniqueCoords.size(), counter, all));
     }
 
     public static List<String> dropTheHeader(final List<String> csv) {
