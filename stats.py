@@ -84,7 +84,7 @@ print("####### Edge Comparison ####### \n ")
 mean_median_std(overall_fair['mergeEdges'], 'mergeEdges')
 mean_median_std(overall_fair['opalEdges'], 'opalEdges')
 print("merge edges: %d" %(overall_fair['mergeEdges'].sum()))
-print("opal edges: %d" %(overall_fair['mergeEdges'].sum()))
+print("opal edges: %d" %(overall_fair['opalEdges'].sum()))
 
 print("####### Edge Plot ####### \n ")
 fig, (ax1) = plt.subplots(nrows=1, ncols=2, sharey=True)
@@ -104,6 +104,7 @@ df = pd.DataFrame(dict(mean=[merge.mean(), overall_fair['opalTime'].mean(), over
 print(df.to_latex(index = True, index_names= True))
 mean_median_std(merge, "merge")
 mean_median_std(overall_fair['opalTime'], 'opal')
+mean_median_std(overall_fair['cgPool'], 'cgPool')
 
 print("####### Time Plot ####### \n ")
 fig, (ax1) = plt.subplots(nrows=1, ncols=3, sharey=True)
