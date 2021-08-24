@@ -17,7 +17,7 @@ if not path.exists(directory):
 accuracy = pd.read_csv(root+"accuracy.csv")
 overall = pd.read_csv(root+"Overall.csv")
 overall = overall[~overall['opalTime'].isna()]
-
+input_data = pd.read_csv(root+"inputStats.csv")
 
 def mean_median_std(data, field):
     print("mean of %s: %f" %( field, data.mean()))
