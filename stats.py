@@ -87,8 +87,8 @@ print("opal edges: %d" %(overall_fair['opalEdges'].sum()))
 
 print("####### Edge Plot ####### \n ")
 fig, (ax1) = plt.subplots(nrows=1, ncols=2, sharey=True)
-mergeEdge = overall_fair[(overall_fair['mergeEdges']) !=0 & (overall_fair['mergeEdges'] != -1)].astype(int)
-opalEdge = overall_fair[(overall_fair['opalEdges'] !=0) & (overall_fair['opalEdges'] != -1)].astype(int)
+mergeEdge = overall_fair[(overall_fair['mergeEdges']) !=0 & (overall_fair['mergeEdges'] != -1)]['mergeEdges']
+opalEdge = overall_fair[(overall_fair['opalEdges'] !=0) & (overall_fair['opalEdges'] != -1)]['opalEdges']
 ax1[0].violinplot(np.log(mergeEdge), showmedians=True)
 ax1[1].violinplot(np.log(opalEdge), showmedians=True)
 ax1[0].set_title('Stitching edges')
