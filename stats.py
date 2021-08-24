@@ -16,7 +16,6 @@ if not path.exists(directory):
     os.mkdir(directory)
 accuracy = pd.read_csv(root+"accuracy.csv")
 overall = pd.read_csv(root+"Overall.csv")
-overall = overall[~overall['opalTime'].isna()]
 input_data = pd.read_csv(root+"inputStats.csv")
 
 def mean_median_std(data, field):
@@ -50,7 +49,16 @@ def remove_outliers(df):
     return new_df, df2
 
 
+print("####### Success Rate ####### \n ")
+print("All : %s" %len(overall))
+print("OPAL failed: %s"%len(overall[(overall['opalTime'] != 0)]))
+print("Merge failed: %s"%len(overall[(overall['mergeTime'] != 0)]))
+print("OPAL None: %s"%len(overall[~overall['opalTime'].isna()]))
+print("Merge None: %s"%len(overall[~overall['mergeTime'].isna()]))
+
+
 print("####### Accuracy Comparison ####### \n ")
+overall = overall[~overall['opalTime'].isna()]
 mean_median_std(accuracy['precision'], 'precision')
 mean_median_std(accuracy['recall'], 'recall')
 mean_median_std(accuracy['OPAL'], 'OPAL')
@@ -133,9 +141,6 @@ plt.close()
 print("depNum: %s"%input_data['depNum'].mean())
 print("numFiles: %s"%input_data['numFiles'].mean())
 print("numFilesWithDeps: %s"%input_data['numFilesWithDeps'].mean())
-
-
-
 
 
 
