@@ -55,7 +55,7 @@ print("OPAL failed: %s"%len(overall[(overall['opalTime'] != 0)]))
 print("Merge failed: %s"%len(overall[(overall['mergeTime'] != 0)]))
 print("OPAL None: %s"%len(overall[~overall['opalTime'].isna()]))
 print("Merge None: %s"%len(overall[~overall['mergeTime'].isna()]))
-
+print("OPAL and Merge failed: %s"%len(overall[(overall['opalTime'] != 0) & (overall['mergeTime'] != 0)]))
 
 print("####### Accuracy Comparison ####### \n ")
 overall = overall[~overall['opalTime'].isna()]
