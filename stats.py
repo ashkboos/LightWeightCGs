@@ -88,9 +88,10 @@ print("opal edges: %d" %(overall_fair['opalEdges'].sum()))
 
 print("####### Edge Plot ####### \n ")
 fig, (ax1) = plt.subplots(nrows=1, ncols=2, sharey=True)
-
-ax1[0].violinplot(np.log(overall_fair[overall_fair['mergeEdges'] !=0]), showmedians=True)
-ax1[1].violinplot(np.log(overall_fair[overall_fair['opalEdges'] !=0]), showmedians=True)
+mergeEdge = overall_fair[overall_fair['mergeEdges'] !=0 & overall_fair['mergeEdges'] != -1 & ~overall_fair['mergeEdges'].isna()]
+opalEdge = overall_fair[overall_fair['opalEdges'] !=0 & overall_fair['opalEdges'] != -1 & ~overall_fair['opalEdges'].isna()]
+ax1[0].violinplot(np.log(mergeEdge), showmedians=True)
+ax1[1].violinplot(np.log(opalEdge), showmedians=True)
 ax1[0].set_title('Stitching edges')
 ax1[1].set_title('Opal edges')
 plt.savefig(directory+'/edgeComparison.pdf')
