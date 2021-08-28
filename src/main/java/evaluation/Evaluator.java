@@ -113,7 +113,22 @@ public class Evaluator {
                 break;
             case "--countPackages":
                 countPackages(readResolvedCSV(args[1]));
+            case "--distinctDepsets":
+                distinct(readResolvedCSV(args[1]), readResolvedCSV(args[2]));
         }
+    }
+
+    private static void distinct(Map<MavenCoordinate, List<MavenCoordinate>> data1,
+                                 Map<MavenCoordinate, List<MavenCoordinate>> data2) {
+        System.out.println("data1 size: "+data1.size());
+        System.out.println("data2 size: "+data2.size());
+        for (MavenCoordinate mavenCoordinate : data1.keySet()) {
+            if (data2.containsKey(mavenCoordinate)) {
+                System.out.println("duplicate coordinate: "+ mavenCoordinate.getCoordinate());
+            }
+            data2.put(mavenCoordinate, data1.get(mavenCoordinate));
+        }
+        System.out.println("overall size : "+ data2.size());
     }
 
     private static void countPackages(Map<MavenCoordinate, List<MavenCoordinate>> resolvedData) {
