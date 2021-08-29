@@ -15,7 +15,7 @@ directory = root+'figures'
 if not path.exists(directory):
     os.mkdir(directory)
 accuracy = pd.read_csv(root+"accuracy.csv")
-    overall = pd.read_csv(root+"Overall.csv")
+overall = pd.read_csv(root+"Overall.csv")
 input_data = pd.read_csv(root+"inputStats.csv")
 
 def mean_median_std(data, field):
