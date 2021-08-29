@@ -33,7 +33,6 @@ import eu.fasten.core.data.utils.DirectedGraphDeserializer;
 import eu.fasten.core.data.utils.DirectedGraphSerializer;
 import eu.fasten.core.merge.CallGraphUtils;
 import it.unimi.dsi.fastutil.Pair;
-import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -115,7 +114,17 @@ public class Evaluator {
                 countPackages(readResolvedCSV(args[1]));
             case "--distinctDepsets":
                 distinct(readResolvedCSV(args[1]), readResolvedCSV(args[2]));
+            case "--removeParentpkcs":
+                writeOnlyOneDeps(args[1], args[2]);
+
         }
+    }
+
+    private static void writeOnlyOneDeps(String inputPath, String resultPath) throws IOException {
+        final var data = readResolvedCSV(inputPath);
+        final var multiDeps = removeOnlyOnedeps(data);
+        StatCounter.writeToCSV(buildDataCSV(multiDeps), resultPath);
+        logger.info("Wrote resolved data into file successfully!");
     }
 
     private static void distinct(Map<MavenCoordinate, List<MavenCoordinate>> data1,
