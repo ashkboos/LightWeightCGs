@@ -9,8 +9,8 @@ while IFS= read -r line; do
     mkdir $folder/$coord/opal
     mkdir $folder/$coord/merge
     echo "Generating graphs for "$coord" package..."
-    java -Xmx24000m -Xms24000m -jar runnable/LightWeightCGs-1.0-SNAPSHOT-with-dependencies.jar --opal "$line" $folder/$coord/opal $3 > $folder/$coord/opal/log
-    java -Xmx24000m -Xms24000m -jar runnable/LightWeightCGs-1.0-SNAPSHOT-with-dependencies.jar --merge "$line" $folder/$coord/merge $3 > $folder/$coord/merge/log
+    java -Xmx7000m -Xms7000m -jar runnable/LightWeightCGs-1.0-SNAPSHOT-with-dependencies.jar --opal "$line" $folder/$coord/opal $3 > $folder/$coord/opal/log
+    java -Xmx7000m -Xms7000m -jar runnable/LightWeightCGs-1.0-SNAPSHOT-with-dependencies.jar --merge "$line" $folder/$coord/merge $3 > $folder/$coord/merge/log
   fi
   ((i = i + 1))
 done <"$1"
