@@ -154,11 +154,11 @@ public class Evaluator {
             dataLines.add(new String[] {
                 /* number */ String.valueOf(counter),
                 /* folder */ row.getKey(),
-                /* opalOutput */ String.valueOf(row.getValue().get(0)),
-                /* opalCG */ String.valueOf(row.getValue().get(1)),
-                /* mergeOutput */ String.valueOf(row.getValue().get(2)),
-                /* CGPool */ String.valueOf(row.getValue().get(3)),
-                /* mergeCG */ String.valueOf(row.getValue().get(4))
+                /* opalOutput */ row.getValue().get(0) ?"1":"0" ,
+                /* opalCG */ row.getValue().get(1) ?"1":"0",
+                /* mergeOutput */ row.getValue().get(2) ?"1":"0",
+                /* CGPool */ row.getValue().get(3) ?"1":"0",
+                /* mergeCG */ row.getValue().get(4) ?"1":"0"
             });
             counter++;
         }
