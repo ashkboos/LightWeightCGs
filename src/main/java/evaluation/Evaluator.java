@@ -129,34 +129,37 @@ public class Evaluator {
     private static void countNoOutputProjects(final String rootPath, final String outPath)
         throws IOException {
         logger.info("Start analyzing directory...");
-        Map<String, String> ooms = new HashMap<>();
+        Map<String, List<Boolean>> result = new HashMap<>();
         for (File pckg : Objects.requireNonNull(new File(rootPath).listFiles())) {
             final var opal = getFile(pckg, "opal")[0];
             final var merge = getFile(pckg, "merge")[0];
             final var opalExists = new File(opal.getAbsolutePath() + "/resultOpal.csv").exists();
-            final var mergeExists = new File(opal.getAbsolutePath() + "/resultOpal.csv").exists();
-            if (!opalExists && !mergeExists) {
-                ooms.put(pckg.getName(), "both");
-            }else if (opalExists && !mergeExists){
-                ooms.put(pckg.getName(), "merge");
-            }else if (!opalExists){
-                ooms.put(pckg.getName(), "opal");
-            }else {
-                ooms.put(pckg.getName(), "none");
-            }
-            StatCounter.writeToCSV(buildCSV(ooms), outPath);
+            final var opalCgExists = new File(opal.getAbsolutePath() + "/cg.json").exists();
+            final var mergeExists = new File(merge.getAbsolutePath() + "/Merge.csv").exists();
+            final var CGPoolExists = new File(merge.getAbsolutePath() + "/CGPool.csv").exists();
+            final var mergeCgExists = new File(merge.getAbsolutePath() + "/cg.json").exists();
+
+             result.put(pckg.getName(), List.of(opalExists, opalCgExists, mergeExists,
+                 CGPoolExists, mergeCgExists));
         }
+        StatCounter.writeToCSV(buildCSV(result), outPath);
     }
 
-    private static List<String[]> buildCSV(final Map<String, String> resolvedData) {
+    private static List<String[]> buildCSV(final Map<String, List<Boolean>> resolvedData) {
         final List<String[]> dataLines = new ArrayList<>();
-        dataLines.add(new String[] {"number", "folder", "status"});
+        dataLines.add(new String[] {"number", "folder", "opalOutput", "opalCG", "mergeOutput",
+            "CGPool", "mergeCG"});
         int counter = 0;
         for (final var row : resolvedData.entrySet()) {
             dataLines.add(new String[] {
                 /* number */ String.valueOf(counter),
                 /* folder */ row.getKey(),
-                /* status */ row.getValue()});
+                /* opalOutput */ String.valueOf(row.getValue().get(0)),
+                /* opalCG */ String.valueOf(row.getValue().get(1)),
+                /* mergeOutput */ String.valueOf(row.getValue().get(2)),
+                /* CGPool */ String.valueOf(row.getValue().get(3)),
+                /* mergeCG */ String.valueOf(row.getValue().get(4))
+            });
             counter++;
         }
         return dataLines;
