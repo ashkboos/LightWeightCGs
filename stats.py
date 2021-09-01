@@ -17,6 +17,8 @@ if not path.exists(directory):
 accuracy = pd.read_csv(root+"accuracy.csv")
 overall = pd.read_csv(root+"Overall.csv")
 input_data = pd.read_csv(root+"inputStats.csv")
+files = pd.read_csv(root+"files.csv")
+cg_pool = pd.read_csv(root+"CGPool.csv")
 
 def mean_median_std(data, field):
     print("mean of %s: %f" %( field, data.mean()))
@@ -48,13 +50,24 @@ def remove_outliers(df):
     df2 = df.drop(df[cond].index)
     return new_df, df2
 
-print("####### Success Rate ####### \n ")
+print("####### Analysis rate ####### \n ")
 print("All : %s" %len(overall))
 print("OPAL failed: %s"%len(overall[(overall['opalTime'] == 0)]))
 print("Merge failed: %s"%len(overall[(overall['mergeTime'] == 0)]))
 print("OPAL None: %s"%len(overall[overall['opalTime'].isna()]))
 print("Merge None: %s"%len(overall[overall['mergeTime'].isna()]))
 print("OPAL and Merge failed: %s"%len(overall[(overall['opalTime'] == 0) & (overall['mergeTime'] == 0)]))
+
+print("####### Success Rate/File existence ####### \n ")
+print("opalOutput : %s"%len(files[files["opalOutput"]] == 1))
+print("opalCG : %s"%len(files[files["opalCG"]] == 1))
+print("mergeOutput : %s"%len(files[files["mergeOutput"]] == 1))
+print("CGPool : %s"%len(files[files["CGPool"]] == 1))
+print("mergeCG : %s"%len(files[files["mergeCG"]] == 1))
+
+print("####### partial success ####### \n ")
+print("partial time not zero: %s"%len(cg_pool[cg_pool["isolatedRevisionTime"]] == 0))
+print("all partials : %s"%len(cg_pool))
 
 print("####### Accuracy Comparison ####### \n ")
 overall = overall[~overall['opalTime'].isna()]
