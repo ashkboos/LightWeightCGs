@@ -112,12 +112,54 @@ public class Evaluator {
                 break;
             case "--countPackages":
                 countPackages(readResolvedCSV(args[1]));
+                break;
             case "--distinctDepsets":
                 distinct(readResolvedCSV(args[1]), readResolvedCSV(args[2]));
+                break;
             case "--removeParentpkcs":
                 writeOnlyOneDeps(args[1], args[2]);
+                break;
+            case "--oomCounter":
+                countNoOutputProjects(args[1], args[2]);
+                break;
 
         }
+    }
+
+    private static void countNoOutputProjects(final String rootPath, final String outPath)
+        throws IOException {
+        logger.info("Start analyzing directory...");
+        Map<String, String> ooms = new HashMap<>();
+        for (File pckg : Objects.requireNonNull(new File(rootPath).listFiles())) {
+            final var opal = getFile(pckg, "opal")[0];
+            final var merge = getFile(pckg, "merge")[0];
+            final var opalExists = new File(opal.getAbsolutePath() + "/resultOpal.csv").exists();
+            final var mergeExists = new File(opal.getAbsolutePath() + "/resultOpal.csv").exists();
+            if (!opalExists && !mergeExists) {
+                ooms.put(pckg.getName(), "both");
+            }else if (opalExists && !mergeExists){
+                ooms.put(pckg.getName(), "merge");
+            }else if (!opalExists){
+                ooms.put(pckg.getName(), "opal");
+            }else {
+                ooms.put(pckg.getName(), "none");
+            }
+            StatCounter.writeToCSV(buildCSV(ooms), outPath);
+        }
+    }
+
+    private static List<String[]> buildCSV(final Map<String, String> resolvedData) {
+        final List<String[]> dataLines = new ArrayList<>();
+        dataLines.add(new String[] {"number", "folder", "status"});
+        int counter = 0;
+        for (final var row : resolvedData.entrySet()) {
+            dataLines.add(new String[] {
+                /* number */ String.valueOf(counter),
+                /* folder */ row.getKey(),
+                /* status */ row.getValue()});
+            counter++;
+        }
+        return dataLines;
     }
 
     private static void writeOnlyOneDeps(String inputPath, String resultPath) throws IOException {
