@@ -111,18 +111,19 @@ plt.close()
 
 print("####### Time Comparison ####### \n ")
 merge = overall_fair['mergeTime']+overall_fair['UCHTime']
-df = pd.DataFrame(dict(mean=[merge.mean(), overall_fair['opalTime'].mean(), overall_fair['cgPool'].mean()],
-                  std=[merge.std(), overall_fair['opalTime'].std(), overall_fair['cgPool'].std()],
-                  median=[merge.median(), overall_fair['opalTime'].median(), overall_fair['cgPool'].median()]))
+first_time = merge+overall_fair['cgPool']
+df = pd.DataFrame(dict(mean=[merge.mean(), overall_fair['opalTime'].mean(), first_time.mean()],
+                  std=[merge.std(), overall_fair['opalTime'].std(), first_time.std()],
+                  median=[merge.median(), overall_fair['opalTime'].median(), first_time.median()]))
 print(df.to_latex(index = True, index_names= True))
 mean_median_std(merge, "merge")
 mean_median_std(overall_fair['opalTime'], 'opal')
-mean_median_std(overall_fair['cgPool'], 'cgPool')
+mean_median_std(first_time, 'cgPool')
 
 print("####### Time Plot ####### \n ")
 fig, (ax1) = plt.subplots(nrows=1, ncols=3, sharey=True)
 ax1[0].violinplot(np.log(overall_fair['opalTime']), showmedians=True)
-ax1[1].violinplot(np.log(merge+overall_fair['cgPool']), showmedians=True)
+ax1[1].violinplot(np.log(first_time), showmedians=True)
 ax1[2].violinplot(np.log(merge), showmedians=True)
 ax1[0].set_title('OPAL')
 ax1[1].set_title('Frankenstein first')
