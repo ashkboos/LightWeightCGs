@@ -26,6 +26,7 @@ import ch.qos.logback.classic.Level;
 import eu.fasten.analyzer.javacgopal.Main;
 
 import eu.fasten.core.data.DirectedGraph;
+import eu.fasten.core.data.JSONUtils;
 import eu.fasten.core.data.MergedDirectedGraph;
 import eu.fasten.core.data.opal.MavenCoordinate;
 
@@ -122,8 +123,47 @@ public class Evaluator {
             case "--oomCounter":
                 countNoOutputProjects(args[1], args[2]);
                 break;
+            case "--compareCGPoolAndInput":
+                compareCGPoolAndInput(args[1], args[2], args[3]);
+                break;
 
         }
+    }
+
+    private static void compareCGPoolAndInput(String poolPath, String inputPath,
+                                              String outputPath) throws IOException {
+        final var cgPool = getCSV(poolPath);
+        final var input = readResolvedCSV(inputPath);
+        Set<MavenCoordinate> poolCoords = new HashSet<>();
+        if (cgPool.isPresent()) {
+            for (final var cg : cgPool.get()) {
+                poolCoords.add(MavenCoordinate.fromString(cg.get("coordinate"), "jar"));
+            }
+        }
+        final Set<MavenCoordinate> unsuccessfuls = new HashSet<>();
+        for (final var row : input.entrySet()) {
+            for (MavenCoordinate inputCoord : row.getValue()) {
+                if (!poolCoords.contains(inputCoord)) {
+                    unsuccessfuls.add(inputCoord);
+                }
+            }
+        }
+        StatCounter.writeToCSV(buildCSV(unsuccessfuls), outputPath);
+    }
+
+    private static List<String[]> buildCSV(Set<MavenCoordinate> unsucessfulls) {
+        final List<String[]> dataLines = new ArrayList<>();
+        dataLines.add(new String[] {"number", "folder", "opalOutput", "opalCG", "mergeOutput",
+            "CGPool", "mergeCG"});
+        int counter = 0;
+        for (final var row : unsucessfulls) {
+            dataLines.add(new String[] {
+                /* number */ String.valueOf(counter),
+                /* folder */ row.getCoordinate()
+            });
+            counter++;
+        }
+        return dataLines;
     }
 
     private static void countNoOutputProjects(final String rootPath, final String outPath)
@@ -562,7 +602,8 @@ public class Evaluator {
     }
 
     private static void runOPALandMerge(final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
-                                        final StatCounter statCounter, final String algorithm) {
+                                        final StatCounter statCounter, final String algorithm)
+        throws IOException {
         final Map<MavenCoordinate, Set<MavenCoordinate>> remainedDependents = getDependents(resolvedData);
         final Map<MavenCoordinate, ExtendedRevisionJavaCallGraph> cgPool = new HashMap<>();
         ProgressBar pb = new ProgressBar("Measuring stats", resolvedData.entrySet().size());
@@ -778,28 +819,23 @@ public class Evaluator {
         final var cgMerger =  new CGMerger(rcgs);
         statCounter.addUCH(artifact,System.currentTimeMillis() - startTimeUch);
 
-            if (cgPool.get(artifact) != null) {
-                logger.info("\n ###############\n Merging {}:", artifact.getCoordinate());
-                DirectedGraph rcg = null;
-                final var times = new ArrayList<Long>();
-                for (int i = 0; i < warmUp + iterations ; i++) {
-                    if (i > warmUp) {
-                        final long startTime = System.currentTimeMillis();
-                        rcg = cgMerger.mergeAllDeps();
-                        times.add(System.currentTimeMillis() - startTime);
-                    }
-                }
-
-                statCounter.addMerge(artifact, artifact, deps,
-                        (long) times.stream().mapToDouble(a -> a).average().getAsDouble(),
-                        new StatCounter.GraphStats(rcg));
-
-                result = Pair.of(rcg, cgMerger.getAllUris());
-            }else {
-                statCounter
-                    .addMerge(artifact, artifact, deps,
-                        0, new StatCounter.GraphStats());
+        logger.info("\n ###############\n Merging {}:", artifact.getCoordinate());
+        DirectedGraph rcg = null;
+        final var times = new ArrayList<Long>();
+        for (int i = 0; i < warmUp + iterations ; i++) {
+            if (i > warmUp) {
+                final long startTime = System.currentTimeMillis();
+                rcg = cgMerger.mergeAllDeps();
+                times.add(System.currentTimeMillis() - startTime);
             }
+        }
+
+        statCounter.addMerge(artifact, artifact, deps,
+                (long) times.stream().mapToDouble(a -> a).average().getAsDouble(),
+                new StatCounter.GraphStats(rcg));
+
+        result = Pair.of(rcg, cgMerger.getAllUris());
+
         return result;
     }
 
@@ -837,7 +873,8 @@ public class Evaluator {
 
     private static Pair<DirectedGraph, Map<Long, String>> generateForOPAL(StatCounter statCounter,
                                         Map.Entry<MavenCoordinate, List<MavenCoordinate>> row,
-                                                                          String algorithm) {
+                                                                          String algorithm)
+        throws IOException {
         ExtendedRevisionJavaCallGraph rcg = null;
         DirectedGraph dcg = new MergedDirectedGraph();
 
@@ -885,6 +922,9 @@ public class Evaluator {
             statCounter.addOPAL(row.getKey(), new StatCounter.OpalStats(0l,
                 new StatCounter.GraphStats()));
         }
+        CallGraphUtils.writeToFile("/Users/mehdi/Desktop/MyMac/TUD/FASTEN/Repositories/MainRepo" +
+            "/LightWeightCGs/results/inputMvnData/test/opalJcg.json", JSONUtils.toJSONString(rcg),
+            "RTA");
         Map<Long, String> map = new HashMap<>();
         if (rcg != null) {
             map = rcg.mapOfFullURIStrings().entrySet().stream()
@@ -1111,7 +1151,4 @@ public class Evaluator {
         }
         return result;
     }
-
-
-
 }
