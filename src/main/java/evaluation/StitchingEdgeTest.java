@@ -1,17 +1,5 @@
 package evaluation;
 
-import eu.fasten.analyzer.javacgopal.data.CallGraphConstructor;
-import eu.fasten.core.data.DirectedGraph;
-import eu.fasten.core.data.FastenURI;
-import eu.fasten.core.data.opal.MavenCoordinate;
-import eu.fasten.analyzer.javacgopal.data.PartialCallGraph;
-import eu.fasten.core.data.opal.exceptions.MissingArtifactException;
-import eu.fasten.core.data.opal.exceptions.OPALException;
-import eu.fasten.core.data.ExtendedRevisionJavaCallGraph;
-import eu.fasten.core.merge.CGMerger;
-import it.unimi.dsi.fastutil.Pair;
-import it.unimi.dsi.fastutil.longs.LongLongPair;
-import it.unimi.dsi.fastutil.objects.ObjectObjectImmutablePair;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -19,8 +7,25 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+
+import eu.fasten.analyzer.javacgopal.data.CGAlgorithm;
+import eu.fasten.analyzer.javacgopal.data.CallPreservationStrategy;
+import eu.fasten.analyzer.javacgopal.data.OPALCallGraphConstructor;
+import eu.fasten.analyzer.javacgopal.data.PartialCallGraphConstructor;
+import eu.fasten.core.data.DirectedGraph;
+import eu.fasten.core.data.ExtendedRevisionJavaCallGraph;
+import eu.fasten.core.data.FastenURI;
+import eu.fasten.core.data.opal.MavenArtifactDownloader;
+import eu.fasten.core.data.opal.MavenCoordinate;
+import eu.fasten.core.data.opal.exceptions.MissingArtifactException;
+import eu.fasten.core.data.opal.exceptions.OPALException;
+import eu.fasten.core.merge.CGMerger;
+import it.unimi.dsi.fastutil.Pair;
+import it.unimi.dsi.fastutil.longs.LongLongPair;
+import it.unimi.dsi.fastutil.objects.ObjectObjectImmutablePair;
 
 
 public class StitchingEdgeTest {
@@ -149,17 +154,17 @@ public class StitchingEdgeTest {
         final List<ExtendedRevisionJavaCallGraph> result = new ArrayList<>();
 
         for (final var dep : row.getValue()) {
-            final var file = new MavenCoordinate.MavenResolver().downloadArtifact(dep, "jar");
+            final var file = new MavenArtifactDownloader(dep).downloadArtifact("jar");
             System.out.println("################# \n downloaded jar to:" + file.getAbsolutePath());
 
-            final var opalCG = new CallGraphConstructor(file, "", "CHA");
-            final var cg = new PartialCallGraph(opalCG);
+            final var opalCG = new OPALCallGraphConstructor().construct(file, CGAlgorithm.CHA);
+            final var cg = new PartialCallGraphConstructor().construct(opalCG, CallPreservationStrategy.ONLY_STATIC_CALLSITES);
             final var rcg = ExtendedRevisionJavaCallGraph.extendedBuilder()
-                .graph(cg.getGraph())
+                .graph(cg.graph)
                 .product(dep.getProduct())
                 .version(dep.getVersionConstraint())
-                .classHierarchy(cg.getClassHierarchy())
-                .nodeCount(cg.getNodeCount())
+                .classHierarchy(cg.classHierarchy)
+                .nodeCount(cg.nodeCount)
                 .build();
 
             result.add(rcg);
@@ -169,17 +174,17 @@ public class StitchingEdgeTest {
 
 
 
-    private static Pair<DirectedGraph, Map<Long, String>> getOpalCG(final Map.Entry<MavenCoordinate,
+    public static Pair<DirectedGraph, Map<Long, String>> getOpalCG(final Map.Entry<MavenCoordinate,
         List<MavenCoordinate>> row)
         throws IOException, OPALException {
         final var tempDir = Evaluator.downloadToDir(row.getValue());
         System.out.println("################# \n downloaded jars to:" +tempDir.getAbsolutePath());
-        final var cg = new PartialCallGraph(new CallGraphConstructor(tempDir, "", "CHA"));
+        final var cg = new PartialCallGraphConstructor().construct(new OPALCallGraphConstructor().construct(tempDir, CGAlgorithm.CHA), CallPreservationStrategy.ONLY_STATIC_CALLSITES);
 
         final var ercg = ExtendedRevisionJavaCallGraph.extendedBuilder()
-            .graph(cg.getGraph())
-            .classHierarchy(cg.getClassHierarchy())
-            .nodeCount(cg.getNodeCount())
+            .graph(cg.graph)
+            .classHierarchy(cg.classHierarchy)
+            .nodeCount(cg.nodeCount)
             .build();
         final var map = ercg.mapOfFullURIStrings().entrySet().stream()
             .collect(Collectors.toMap(e -> Long.valueOf(e.getKey()), Map.Entry::getValue));

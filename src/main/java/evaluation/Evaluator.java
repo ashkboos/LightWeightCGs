@@ -21,19 +21,6 @@ package evaluation;
 import static evaluation.StitchingEdgeTest.compareMergeOPAL;
 import static evaluation.StitchingEdgeTest.groupBySource;
 
-import ch.qos.logback.classic.Level;
-
-import eu.fasten.analyzer.javacgopal.Main;
-
-import eu.fasten.core.data.DirectedGraph;
-import eu.fasten.core.data.JSONUtils;
-import eu.fasten.core.data.MergedDirectedGraph;
-import eu.fasten.core.data.opal.MavenCoordinate;
-
-import eu.fasten.core.data.utils.DirectedGraphDeserializer;
-import eu.fasten.core.data.utils.DirectedGraphSerializer;
-import eu.fasten.core.merge.CallGraphUtils;
-import it.unimi.dsi.fastutil.Pair;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -42,19 +29,21 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-
-
-import eu.fasten.analyzer.javacgopal.data.CallGraphConstructor;
-import eu.fasten.analyzer.javacgopal.data.PartialCallGraph;
-import eu.fasten.core.data.ExtendedRevisionJavaCallGraph;
-import eu.fasten.core.merge.CGMerger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-import me.tongfei.progressbar.ProgressBar;
+
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.jboss.shrinkwrap.resolver.api.maven.Maven;
@@ -63,6 +52,26 @@ import org.json.JSONObject;
 import org.json.JSONTokener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import ch.qos.logback.classic.Level;
+import eu.fasten.analyzer.javacgopal.Main;
+import eu.fasten.analyzer.javacgopal.data.CGAlgorithm;
+import eu.fasten.analyzer.javacgopal.data.CallPreservationStrategy;
+import eu.fasten.analyzer.javacgopal.data.OPALCallGraph;
+import eu.fasten.analyzer.javacgopal.data.OPALCallGraphConstructor;
+import eu.fasten.analyzer.javacgopal.data.PartialCallGraphConstructor;
+import eu.fasten.core.data.DirectedGraph;
+import eu.fasten.core.data.ExtendedRevisionJavaCallGraph;
+import eu.fasten.core.data.JSONUtils;
+import eu.fasten.core.data.MergedDirectedGraph;
+import eu.fasten.core.data.opal.MavenArtifactDownloader;
+import eu.fasten.core.data.opal.MavenCoordinate;
+import eu.fasten.core.data.utils.DirectedGraphDeserializer;
+import eu.fasten.core.data.utils.DirectedGraphSerializer;
+import eu.fasten.core.merge.CGMerger;
+import eu.fasten.core.merge.CallGraphUtils;
+import it.unimi.dsi.fastutil.Pair;
+import me.tongfei.progressbar.ProgressBar;
 
 public class Evaluator {
 
@@ -91,16 +100,16 @@ public class Evaluator {
                 generateAllFeatures(new File(args[1]), args[2]);
                 break;
             case "--compare":
-                measureAll(readResolvedCSV(args[1]), args[2], Integer.parseInt(args[3]), args[4]);
+                measureAll(readResolvedCSV(args[1]), args[2], Integer.parseInt(args[3]), CGAlgorithm.valueOf(args[4]));
                 break;
             case "--resolve":
                 resolveDependencies(args[1], args[2]);
                 break;
             case "--opal":
-                writeOpalToFolder(args[1], args[2], args[3]);
+                writeOpalToFolder(args[1], args[2], CGAlgorithm.valueOf(args[3]));
                 break;
             case "--merge":
-                writeMergeToFolder(args[1], args[2], args[3]);
+                writeMergeToFolder(args[1], args[2], CGAlgorithm.valueOf(args[3]));
                 break;
             case "--fromFiles":
                 analyzeDir(args[1], args[2]);
@@ -261,7 +270,7 @@ public class Evaluator {
             for (int i = 0; i < value.size(); i++) {
                 MavenCoordinate coord = value.get(i);
                 try {
-                    final var file = new MavenCoordinate.MavenResolver().downloadArtifact(coord, "jar");
+                    final var file = new MavenArtifactDownloader(coord).downloadArtifact("jar");
                     ZipInputStream is =
                         new ZipInputStream(new FileInputStream(file.getAbsolutePath()));
                     ZipEntry ze;
@@ -514,7 +523,7 @@ public class Evaluator {
     }
 
     private static void writeMergeToFolder(final String row, final String path,
-                                           final String algorithm) throws IOException {
+                                           final CGAlgorithm algorithm) throws IOException {
         final var statCounter = new StatCounter();
         final var coords = getCoordinates(row);
         final var rcg = mergeRecord(Map.of(coords.getKey(), coords.getValue()), statCounter,
@@ -528,7 +537,7 @@ public class Evaluator {
     }
 
     private static void writeOpalToFolder(final String row, final String path,
-                                          final String algorithm) throws IOException {
+                                          final CGAlgorithm algorithm) throws IOException {
         final var statCounter = new StatCounter();
         final var coords = getCoordinates(row);
         final var rcg = generateForOPAL(statCounter, coords, algorithm);
@@ -579,7 +588,7 @@ public class Evaluator {
     private static void measureAll(
         final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
         final String outPath,
-        final int threshold, final String algorithm)
+        final int threshold, final CGAlgorithm algorithm)
         throws IOException, NoSuchFieldException, IllegalAccessException {
 
         final var statCounter = new StatCounter();
@@ -602,7 +611,7 @@ public class Evaluator {
     }
 
     private static void runOPALandMerge(final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
-                                        final StatCounter statCounter, final String algorithm)
+                                        final StatCounter statCounter, final CGAlgorithm algorithm)
         throws IOException {
         final Map<MavenCoordinate, Set<MavenCoordinate>> remainedDependents = getDependents(resolvedData);
         final Map<MavenCoordinate, ExtendedRevisionJavaCallGraph> cgPool = new HashMap<>();
@@ -637,7 +646,7 @@ public class Evaluator {
     private static Pair<DirectedGraph, Map<Long, String>> mergeRecord(
         final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData, StatCounter statCounter,
         final Map<MavenCoordinate, ExtendedRevisionJavaCallGraph> cgPool,
-        final MavenCoordinate toMerge, final String algorithm) {
+        final MavenCoordinate toMerge, final CGAlgorithm algorithm) {
         for (final var dep : resolvedData.get(toMerge)) {
             if (!cgPool.containsKey(dep)) {
                 addToCGPool(statCounter, cgPool, dep, algorithm);
@@ -873,7 +882,7 @@ public class Evaluator {
 
     private static Pair<DirectedGraph, Map<Long, String>> generateForOPAL(StatCounter statCounter,
                                         Map.Entry<MavenCoordinate, List<MavenCoordinate>> row,
-                                                                          String algorithm)
+                                                                          CGAlgorithm algorithm)
         throws IOException {
         ExtendedRevisionJavaCallGraph rcg = null;
         DirectedGraph dcg = new MergedDirectedGraph();
@@ -883,22 +892,22 @@ public class Evaluator {
                 logger.info("\n##################### \n Deps of {} downloaded to {}, Opal is " +
                         "generating ...", row.getValue().get(0).getCoordinate(),
                     tempDir.getAbsolutePath());
-            CallGraphConstructor opalCg = null;
+            OPALCallGraph opalCg = null;
 
             final var times = new ArrayList<Long>();
             for (int i = 0; i < warmUp + iterations ; i++) {
                 if (i > warmUp) {
                     final long startTime = System.currentTimeMillis();
-                    opalCg = new CallGraphConstructor(tempDir, "", algorithm);
+                    opalCg = new OPALCallGraphConstructor().construct(tempDir, algorithm);
                     times.add(System.currentTimeMillis() - startTime);
                 }
             }
 
-                final var cg = new PartialCallGraph(opalCg, false);
+                final var cg = new PartialCallGraphConstructor().construct(opalCg, CallPreservationStrategy.INCLUDING_ALL_SUBTYPES);
                 rcg = ExtendedRevisionJavaCallGraph.extendedBuilder()
-                    .graph(cg.getGraph())
-                    .classHierarchy(cg.getClassHierarchy())
-                    .nodeCount(cg.getNodeCount())
+                    .graph(cg.graph)
+                    .classHierarchy(cg.classHierarchy)
+                    .nodeCount(cg.nodeCount)
                     .build();
 
             FileUtils.deleteDirectory(tempDir);
@@ -944,7 +953,7 @@ public class Evaluator {
         for (final var coord : mavenCoordinates) {
             File coordinateFile = new File("");
             try {
-                coordinateFile = new MavenCoordinate.MavenResolver().downloadArtifact(coord, "jar");
+                coordinateFile = new MavenArtifactDownloader(coord).downloadArtifact("jar");
             } catch (Exception e) {
                 logger.warn("File not found!");
             }
@@ -957,7 +966,7 @@ public class Evaluator {
 
     private static Map<MavenCoordinate, ExtendedRevisionJavaCallGraph> buildUpCGPool(
         final Map<MavenCoordinate, List<MavenCoordinate>> dataSet, final StatCounter statCounter,
-        final Integer uniqueCoords, final String algorithm) {
+        final Integer uniqueCoords, final CGAlgorithm algorithm) {
 
         ProgressBar pb = new ProgressBar("Creating CGPool", uniqueCoords);
         pb.start();
@@ -977,22 +986,22 @@ public class Evaluator {
     private static void addToCGPool(final StatCounter statCounter,
                                     final Map<MavenCoordinate, ExtendedRevisionJavaCallGraph> cgPool,
                                     final MavenCoordinate dep,
-                                    final String algorithm) {
+                                    final CGAlgorithm algorithm) {
         if (!cgPool.containsKey(dep)) {
             try {
                 logger.info("\n ##############\n Adding {} to cg pool!",
                     dep.getCoordinate());
-                final var file = new MavenCoordinate.MavenResolver().downloadArtifact(dep, "jar");
+                final var file = new MavenArtifactDownloader(dep).downloadArtifact("jar");
 
                 final long startTime = System.currentTimeMillis();
-                final var opalCG = new CallGraphConstructor(file, "", algorithm);
-                final var cg = new PartialCallGraph(opalCG, true);
+                final var opalCG = new OPALCallGraphConstructor().construct(file, algorithm);
+                final var cg = new PartialCallGraphConstructor().construct(opalCG, CallPreservationStrategy.ONLY_STATIC_CALLSITES);
                 final var rcg = ExtendedRevisionJavaCallGraph.extendedBuilder()
-                    .graph(cg.getGraph())
+                    .graph(cg.graph)
                     .product(dep.getProduct())
                     .version(dep.getVersionConstraint())
-                    .classHierarchy(cg.getClassHierarchy())
-                    .nodeCount(cg.getNodeCount())
+                    .classHierarchy(cg.classHierarchy)
+                    .nodeCount(cg.nodeCount)
                     .build();
 
                     statCounter.addNewCGtoPool(dep,

@@ -1,15 +1,3 @@
-import eu.fasten.analyzer.javacgopal.data.CallGraphConstructor;
-import eu.fasten.core.data.DirectedGraph;
-import eu.fasten.core.data.opal.MavenCoordinate;
-import eu.fasten.analyzer.javacgopal.data.PartialCallGraph;
-import eu.fasten.core.data.opal.exceptions.MissingArtifactException;
-import eu.fasten.core.data.opal.exceptions.OPALException;
-import eu.fasten.core.data.ExtendedRevisionJavaCallGraph;
-import eu.fasten.core.merge.CallGraphUtils;
-import eu.fasten.core.merge.CGMerger;
-import evaluation.StatCounter;
-import evaluation.StitchingEdgeTest;
-import it.unimi.dsi.fastutil.Pair;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -21,22 +9,38 @@ import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 
+import eu.fasten.analyzer.javacgopal.data.CGAlgorithm;
+import eu.fasten.analyzer.javacgopal.data.CallPreservationStrategy;
+import eu.fasten.analyzer.javacgopal.data.OPALCallGraphConstructor;
+import eu.fasten.analyzer.javacgopal.data.PartialCallGraphConstructor;
+import eu.fasten.core.data.DirectedGraph;
+import eu.fasten.core.data.ExtendedRevisionJavaCallGraph;
+import eu.fasten.core.data.opal.MavenArtifactDownloader;
+import eu.fasten.core.data.opal.MavenCoordinate;
+import eu.fasten.core.data.opal.exceptions.MissingArtifactException;
+import eu.fasten.core.data.opal.exceptions.OPALException;
+import eu.fasten.core.merge.CGMerger;
+import eu.fasten.core.merge.CallGraphUtils;
+import evaluation.StatCounter;
+import evaluation.StitchingEdgeTest;
+import it.unimi.dsi.fastutil.Pair;
+
 public class JCGTest {
 
 
     @Test
     public void func() throws OPALException, MissingArtifactException {
         var coord = MavenCoordinate.fromString("com.oracle.oci.sdk:oci-java-sdk-filestorage:1.23.0", "jar");
-        final var file = new MavenCoordinate.MavenResolver().downloadArtifact(coord, "jar");
+        final var file = new MavenArtifactDownloader(coord).downloadArtifact("jar");
 
-        final var opalCG = new CallGraphConstructor(file, "", "AllocationSiteBasedPointsTo");
-        final var cg = new PartialCallGraph(opalCG, false);
+        final var opalCG = new OPALCallGraphConstructor().construct(file, CGAlgorithm.AllocationSiteBasedPointsTo);
+        final var cg = new PartialCallGraphConstructor().construct(opalCG, CallPreservationStrategy.INCLUDING_ALL_SUBTYPES);
         final var rcg = ExtendedRevisionJavaCallGraph.extendedBuilder()
-            .graph(cg.getGraph())
+            .graph(cg.graph)
             .product(coord.getProduct())
             .version(coord.getVersionConstraint())
-            .classHierarchy(cg.getClassHierarchy())
-            .nodeCount(cg.getNodeCount())
+            .classHierarchy(cg.classHierarchy)
+            .nodeCount(cg.nodeCount)
             .build();
         System.out.println();
     }
@@ -87,15 +91,15 @@ public class JCGTest {
 
     public static ExtendedRevisionJavaCallGraph getRCG(final File file, final String product,
                                                    final String version) throws OPALException {
-        var opalCG = new CallGraphConstructor(file, "", "CHA");
-        var cg = new PartialCallGraph(opalCG);
+        var opalCG = new OPALCallGraphConstructor().construct(file, CGAlgorithm.CHA);
+        var cg = new PartialCallGraphConstructor().construct(opalCG, CallPreservationStrategy.ONLY_STATIC_CALLSITES);
         return ExtendedRevisionJavaCallGraph.extendedBuilder()
-            .graph(cg.getGraph())
+            .graph(cg.graph)
             .forge("mvn")
             .product(product)
             .version(version)
-            .classHierarchy(cg.getClassHierarchy())
-            .nodeCount(cg.getNodeCount())
+            .classHierarchy(cg.classHierarchy)
+            .nodeCount(cg.nodeCount)
             .build();
     }
     public static Map<String, List<Pair<String, String>>> compareMergeOPAL(
