@@ -1,2 +1,0 @@
-number,rootCoordinate,artifact,mergeTime,internalNodes,externalNodes,internalEdges,externalEdges,resolvedNodes,resolvedEdges,dependencies
-0,org.wso2.carbon.identity.framework:org.wso2.carbon.claim.mgt:5.17.5,org.wso2.carbon.identity.framework:org.wso2.carbon.claim.mgt:5.17.5,4,133,32,122,66,81,122,

@@ -1,2 +1,0 @@
-number,coordinate,opalTime,internalNodes,externalNodes,internalEdges,externalEdges,dependencies
-0,org.wso2.carbon.identity.framework:org.wso2.carbon.claim.mgt:5.17.5,68,133,32,122,66,org.wso2.carbon.identity.framework:org.wso2.carbon.claim.mgt:5.17.5

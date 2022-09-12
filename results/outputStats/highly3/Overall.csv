@@ -1,2 +1,0 @@
-number,coordinate,opalTime,totalMergeTime,cgPool,mergeTime,UCHTime,opalInternalNodes,opalExternalNodes,opalInternalEdges,opalExternalEdges,mergeInternalNodes,mergeExternalNodes,mergeInternalEdges,mergeExternalEdges,mergeResolvedNodes,mergeResolvedEdges,dependencies
-0,org.wso2.carbon.identity.framework:org.wso2.carbon.claim.mgt:5.17.5,68,2740,2736,4,12,133,32,122,66,133,32,122,66,81,122,org.wso2.carbon.identity.framework:org.wso2.carbon.claim.mgt:5.17.5

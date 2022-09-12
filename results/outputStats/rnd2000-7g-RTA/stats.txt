@@ -1,0 +1,107 @@
+####### Analysis rate ####### 
+ 
+All : 1261
+OPAL failed: 617
+Merge failed: 115
+OPAL None: 88
+Merge None: 0
+OPAL and Merge failed: 98
+####### Success Rate/File existence ####### 
+ 
+opalOutput : 1173
+opalCG : 556
+mergeOutput : 1189
+mergeCG : 1146
+####### partial success ####### 
+ 
+partial time not zero: 15594
+all partials : 16558
+####### Accuracy Comparison ####### 
+ 
+mean of precision: 0.955978
+std of precision: 0.190155
+median of precision: 1.000000
+
+
+mean of recall: 0.936570
+std of recall: 0.190926
+median of recall: 1.000000
+
+
+mean of OPAL: 21.247201
+std of OPAL: 164.033853
+median of OPAL: 1.000000
+
+
+mean of Merge: 20.103769
+std of Merge: 165.292491
+median of Merge: 1.000000
+
+
+mean of intersection: 18.717190
+std of intersection: 158.781305
+median of intersection: 1.000000
+
+
+\begin{tabular}{lrrr}
+\toprule
+{} &      mean &       std &  median \\
+\midrule
+0 &  0.955978 &  0.190155 &     1.0 \\
+1 &  0.936570 &  0.190926 &     1.0 \\
+\bottomrule
+\end{tabular}
+
+####### Accuracy Plot ####### 
+ 
+####### Edge Comparison ####### 
+ 
+mean of mergeEdges: 566574.944853
+std of mergeEdges: 1160162.088282
+median of mergeEdges: 109335.500000
+
+
+mean of opalEdges: 577041.000000
+std of opalEdges: 1168855.660181
+median of opalEdges: 110385.500000
+
+
+merge edges: 308216770
+opal edges: 313910304
+####### Edge Plot ####### 
+ 
+####### Time Comparison ####### 
+ 
+\begin{tabular}{lrrr}
+\toprule
+{} &          mean &           std &   median \\
+\midrule
+0 &   4822.680147 &  10889.958685 &    906.0 \\
+1 &  12681.992647 &  20113.431582 &   5364.0 \\
+2 &  30081.544118 &  32970.246562 &  18556.0 \\
+\bottomrule
+\end{tabular}
+
+mean of merge: 4822.680147
+std of merge: 10889.958685
+median of merge: 906.000000
+
+
+mean of opal: 12681.992647
+std of opal: 20113.431582
+median of opal: 5364.000000
+
+
+mean of cgPool: 30081.544118
+std of cgPool: 32970.246562
+median of cgPool: 18556.000000
+
+
+####### Time Plot ####### 
+ 
+####### Input Data ####### 
+ 
+exclude_parents size: 1360
+depNum: 38.3
+numFiles: 262.2757352941176
+numFilesWithDeps: 11411.799264705882
