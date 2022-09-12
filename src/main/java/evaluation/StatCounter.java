@@ -19,36 +19,51 @@
 package evaluation;
 
 import eu.fasten.core.data.DirectedGraph;
+<<<<<<< HEAD
+=======
+import eu.fasten.core.data.PartialJavaCallGraph;
+import eu.fasten.core.data.opal.MavenCoordinate;
+>>>>>>> c959ffa (add wala to stat counter)
 import eu.fasten.core.data.JavaType;
 import eu.fasten.core.data.opal.MavenCoordinate;
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.RandomAccessFile;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
+<<<<<<< HEAD
 import java.util.Collections;
+=======
+>>>>>>> c959ffa (add wala to stat counter)
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import util.CSVUtils;
+import util.FilesUtils;
 
 public class StatCounter {
 
     private static final Logger logger = LoggerFactory.getLogger(StatCounter.class);
 
-    private final Map<MavenCoordinate, OpalStats> opalStats;
+
+    private final Map<MavenCoordinate, GeneratorStats> opalStats;
+
+    private final Map<MavenCoordinate, GeneratorStats> walaStats;
+
     private final Map<MavenCoordinate, CGPoolStats> cgPoolStats;
+
     private final Map<MavenCoordinate, List<MergeTimer>> mergeStats;
+
     private final Map<MavenCoordinate, Long> UCHTime;
+
     private final Map<MavenCoordinate, List<SourceStats>> accuracy;
+
     private final Map<String, Pair<String, String>> logs;
 
 
@@ -56,73 +71,28 @@ public class StatCounter {
         UCHTime = new ConcurrentHashMap<>();
         cgPoolStats = new ConcurrentHashMap<>();
         opalStats = new ConcurrentHashMap<>();
+        walaStats = new ConcurrentHashMap<>();
         mergeStats = new ConcurrentHashMap<>();
         accuracy = new ConcurrentHashMap<>();
         logs = new ConcurrentHashMap<>();
     }
 
     public synchronized void addAccuracy(final MavenCoordinate toMerge,
-                            final List<SourceStats> acc) {
+                                         final List<SourceStats> acc) {
         this.accuracy.put(toMerge, acc);
     }
 
     public synchronized void addLog(final File[] opalLog, final File[] mergeLog,
-                       final String coord) {
+                                    final String coord) {
         String opalLogString = "", mergeLoString = "";
 
         if (opalLog != null) {
-         opalLogString = readFromLast(opalLog[0], 20);
+            opalLogString = FilesUtils.readFromLast(opalLog[0], 20);
         }
-        if (mergeLog != null){
-            mergeLoString = readFromLast(mergeLog[0], 20);
+        if (mergeLog != null) {
+            mergeLoString = FilesUtils.readFromLast(mergeLog[0], 20);
         }
         this.logs.put(coord, ImmutablePair.of(opalLogString, mergeLoString));
-    }
-
-    public String readFromLast(final File file, final int lines){
-        List<String> result = new ArrayList<>();
-        int readLines = 0;
-        StringBuilder builder = new StringBuilder();
-        RandomAccessFile randomAccessFile = null;
-        try {
-            randomAccessFile = new RandomAccessFile(file, "r");
-            long fileLength = file.length() - 1;
-            // Set the pointer at the last of the file
-            randomAccessFile.seek(fileLength);
-            for(long pointer = fileLength; pointer >= 0; pointer--){
-                randomAccessFile.seek(pointer);
-                char c;
-                // read from the last one char at the time
-                c = (char)randomAccessFile.read();
-                // break when end of the line
-                if(c == '\n'){
-                    readLines++;
-                    if(readLines == lines)
-                        break;
-                }
-                builder.append(c);
-            }
-            // Since line is read from the last so it
-            // is in reverse so use reverse method to make it right
-            builder.reverse();
-            result.add(builder.toString());
-//            System.out.println("Line - " + builder.toString());
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-        catch (IOException e) {
-            e.printStackTrace();
-        }finally{
-            if(randomAccessFile != null){
-                try {
-                    randomAccessFile.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-        Collections.reverse(result);
-        return String.join("\n", result);
     }
 
     public static class SourceStats {
@@ -146,10 +116,10 @@ public class StatCounter {
     }
 
     public static class MergeTimer {
-        final private MavenCoordinate artifact;
-        final private List<MavenCoordinate> deps;
-        final private Long time;
-        final private GraphStats mergeStats;
+        public final MavenCoordinate artifact;
+        public final List<MavenCoordinate> deps;
+        public final Long time;
+        public final GraphStats mergeStats;
 
         public MergeTimer(final MavenCoordinate artifact,
                           final List<MavenCoordinate> deps, final Long time,
@@ -162,14 +132,25 @@ public class StatCounter {
     }
 
     public static class GraphStats {
-        final private Integer nodes, edges;
+        public final Integer nodes;
+        public final Integer edges;
 
 
-        public GraphStats(final DirectedGraph rcg) {
+        public GraphStats(final DirectedGraph dg) {
+            if (dg != null) {
+                this.nodes = dg.nodes().size();
+                this.edges = dg.edgeSet().size();
+            } else {
+                this.nodes = 0;
+                this.edges = 0;
+            }
+        }
+
+        public GraphStats(final PartialJavaCallGraph rcg) {
             if (rcg != null) {
-                this.nodes = rcg.nodes().size();
-                this.edges = rcg.edgeSet().size();
-            }else {
+                this.nodes = rcg.getNodeCount();
+                this.edges = rcg.getGraph().getCallSites().size();
+            } else {
                 this.nodes = 0;
                 this.edges = 0;
             }
@@ -202,13 +183,13 @@ public class StatCounter {
         }
     }
 
-    public static class OpalStats {
+    public static class GeneratorStats {
         final private Long time;
-        final private GraphStats opalGraphStats;
+        final private GraphStats graphStats;
 
-        public OpalStats(final Long time, final GraphStats opalGraphStats) {
+        public GeneratorStats(final Long time, final GraphStats graphStats) {
             this.time = time;
-            this.opalGraphStats = opalGraphStats;
+            this.graphStats = graphStats;
         }
     }
 
@@ -232,7 +213,7 @@ public class StatCounter {
     }
 
     public synchronized void addNewCGtoPool(final MavenCoordinate coord, final long time,
-                               final GraphStats rcg) {
+                                            final GraphStats rcg) {
 
         cgPoolStats.put(coord,
             new CGPoolStats(time, 1, rcg)
@@ -243,55 +224,72 @@ public class StatCounter {
         cgPoolStats.get(coord).addOccurrence();
     }
 
-    public synchronized void addOPAL(final MavenCoordinate coord,
-                        final OpalStats os) {
-        if (opalStats.containsKey(coord)) {
-            logger.warn("The coordinate was already generated by OPAL {}", coord);
-        }else {
-            opalStats.put(coord, os);
+    public synchronized void addOPAL(final MavenCoordinate coord, final GeneratorStats os) {
+        addGenerator(coord, os, opalStats);
+    }
+
+    public synchronized void addOPAL(final MavenCoordinate coord, final long time,
+                                     final DirectedGraph dg) {
+        this.addOPAL(coord, new GeneratorStats(time, new GraphStats(dg)));
+    }
+
+    private void addGenerator(final MavenCoordinate coord, final GeneratorStats os,
+                              final Map<MavenCoordinate, GeneratorStats> generator) {
+        if (generator.containsKey(coord)) {
+            logger.warn("The coordinate was already generated {}", coord);
+        } else {
+            generator.put(coord, os);
         }
     }
 
-    public synchronized void addOPAL(MavenCoordinate coord, final long time,
-                        final DirectedGraph rcg) {
-        if (opalStats.containsKey(coord)) {
-            logger.warn("The coordinate was already generated by OPAL {}", coord);
-        }
-        opalStats.put(coord, new OpalStats(time, new GraphStats(rcg)));
+    public void addWala(final MavenCoordinate coord, final long time, final DirectedGraph dg) {
+        this.addWala(coord, new GeneratorStats(time, new GraphStats(dg)));
     }
-    public synchronized void addUCH(final MavenCoordinate coord, final Long time){
+
+    public synchronized void addWala(final MavenCoordinate coord, final GeneratorStats os) {
+        addGenerator(coord, os, walaStats);
+    }
+
+    public synchronized void addUCH(final MavenCoordinate coord, final Long time) {
         UCHTime.put(coord, time);
     }
 
     public synchronized void addMerge(final MavenCoordinate rootCoord,
-                         final MavenCoordinate artifact,
-                         final List<MavenCoordinate> deps,
-                         final long time, final GraphStats cgStats) {
+                                      final MavenCoordinate artifact,
+                                      final List<MavenCoordinate> deps,
+                                      final long time, final GraphStats cgStats) {
         final var merge = mergeStats.getOrDefault(rootCoord, new ArrayList<>());
         merge.add(new MergeTimer(artifact, deps, time, cgStats));
         mergeStats.put(rootCoord, merge);
     }
 
-    public void concludeMerge(final String resultPath)
-        throws IOException{
+    public void concludeMerge(final String resultPath) {
 
-        writeToCSV(buildCGPoolCSV(), resultPath + "/CGPool.csv");
-        writeToCSV(buildMergeCSV(), resultPath + "/Merge.csv");
+        CSVUtils.writeToCSV(buildCGPoolCSV(), resultPath + "/CGPool.csv");
+        CSVUtils.writeToCSV(buildMergeCSV(), resultPath + "/Merge.csv");
     }
+
     public void concludeOpal(final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
-                            final String resultPath) throws IOException{
+                             final String resultPath) {
 
-        writeToCSV(buildOpalCSV(resolvedData), resultPath + "/resultOpal.csv");
+        CSVUtils.writeToCSV(
+            buildGeneratorCSV(resolvedData, opalStats), resultPath + "/resultOpal.csv");
     }
 
-    public void concludeLogs(final String outPath)
-        throws IOException, NoSuchFieldException, IllegalAccessException {
-        writeToCSV(buildLogCsv(), outPath + "/Logs.csv");
+    public void concludeWala(Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
+                             String resultPath) {
+        CSVUtils.writeToCSV(
+            buildGeneratorCSV(resolvedData, walaStats), resultPath + "/resultWala.csv");
     }
+
+    public void concludeLogs(final String outPath) {
+        CSVUtils.writeToCSV(buildLogCsv(), outPath + "/Logs.csv");
+    }
+
 
     private List<String[]> buildLogCsv() {
         final List<String[]> dataLines = new ArrayList<>();
-        dataLines.add(getHeaderOf("Log"));
+        dataLines.add(CSVUtils.getHeaderOf("Log"));
         int counter = 0;
         for (final var coorLogs : this.logs.entrySet()) {
             dataLines.add(getLogContent(counter, coorLogs));
@@ -300,26 +298,28 @@ public class StatCounter {
         return dataLines;
     }
 
+
     private String[] getLogContent(int counter, Map.Entry<String, Pair<String, String>> coorLogs) {
-            return new String[] {
-                /* number */ String.valueOf(counter),
-                /* coordinate */ coorLogs.getKey(),
-                /* opalLog */ coorLogs.getValue().getLeft(),
-                /* mergeLog */ coorLogs.getValue().getRight()
-            };
+        return new String[] {
+            /* number */ String.valueOf(counter),
+            /* coordinate */ coorLogs.getKey(),
+            /* opalLog */ coorLogs.getValue().getLeft(),
+            /* mergeLog */ coorLogs.getValue().getRight()
+        };
     }
 
     public void concludeAll(final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
-                            final String resultPath)
-        throws IOException, NoSuchFieldException, IllegalAccessException {
+                            final String resultPath) {
 
-        writeToCSV(buildOverallCsv(resolvedData), resultPath + "/Overall.csv");
-        writeToCSV(buildAccuracyCsv(resolvedData), resultPath + "/accuracy.csv");
+        CSVUtils.writeToCSV(buildOverallCsv(resolvedData), resultPath + "/Overall.csv");
+        CSVUtils.writeToCSV(buildAccuracyCsv(resolvedData), resultPath + "/accuracy.csv");
     }
 
-    private List<String[]> buildAccuracyCsv(final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData) {
+
+    private List<String[]> buildAccuracyCsv(
+        final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData) {
         final List<String[]> dataLines = new ArrayList<>();
-        dataLines.add(getHeaderOf("Accuracy"));
+        dataLines.add(CSVUtils.getHeaderOf("Accuracy"));
 
         int counter = 0;
         for (final var coordAcc : this.accuracy.entrySet()) {
@@ -330,8 +330,11 @@ public class StatCounter {
         return dataLines;
     }
 
-    private List<String[]> getContentOfAcc(final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData, int counter, final MavenCoordinate coord,
-                                     final List<SourceStats> sourceStats) {
+
+    private List<String[]> getContentOfAcc(
+        final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData, int counter,
+        final MavenCoordinate coord,
+        final List<SourceStats> sourceStats) {
         List<String[]> result = new ArrayList<>();
         for (final var sourceStat : sourceStats) {
             result.add(new String[] {
@@ -350,38 +353,43 @@ public class StatCounter {
         return result;
     }
 
-    private List<String[]> buildOpalCSV(
-        Map<MavenCoordinate, List<MavenCoordinate>> resolvedData) {
+
+    private List<String[]> buildGeneratorCSV(
+        final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
+        final Map<MavenCoordinate, GeneratorStats> generatorStats) {
 
         final List<String[]> dataLines = new ArrayList<>();
-        dataLines.add(getHeaderOf("Opal"));
+        dataLines.add(CSVUtils.getHeaderOf("Generator"));
 
         int counter = 0;
-        for (var opal : opalStats.entrySet()) {
-            var opalStats = opal.getValue();
-            dataLines.add(getContentOfOpal(resolvedData, counter, opal.getKey(), opalStats));
+        for (var coordinateStats : generatorStats.entrySet()) {
+            var stats = coordinateStats.getValue();
+            dataLines.add(
+                getContentOfGenerator(resolvedData, counter, coordinateStats.getKey(), stats));
             counter++;
         }
         return dataLines;
     }
 
-    private String[] getContentOfOpal(
-        Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
+
+    private String[] getContentOfGenerator(
+        final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
         final int counter, MavenCoordinate coord,
-        OpalStats opalStats) {
+        final GeneratorStats generatorStats) {
         return new String[] {
             /* number */ String.valueOf(counter),
             /* coordinate */ coord.getCoordinate(),
-            /* opalTime */ String.valueOf(opalStats.time),
-            /* nodes */ String.valueOf(opalStats.opalGraphStats.nodes),
-            /* edges */ String.valueOf(opalStats.opalGraphStats.edges),
+            /* time */ String.valueOf(generatorStats.time),
+            /* nodes */ String.valueOf(generatorStats.graphStats.nodes),
+            /* edges */ String.valueOf(generatorStats.graphStats.edges),
             /* dependencies */ toString(resolvedData.get(coord))
         };
     }
 
+
     private List<String[]> buildCGPoolCSV() {
         final List<String[]> dataLines = new ArrayList<>();
-        dataLines.add(getHeaderOf("CGPool"));
+        dataLines.add(CSVUtils.getHeaderOf("CGPool"));
 
         int counter = 0;
         for (final var coordRep : cgPoolStats.entrySet()) {
@@ -393,27 +401,29 @@ public class StatCounter {
         return dataLines;
     }
 
+
     private List<String[]> buildMergeCSV() {
 
         final List<String[]> dataLines = new ArrayList<>();
-        dataLines.add(getHeaderOf("Merge"));
+        dataLines.add(CSVUtils.getHeaderOf("Merge"));
         int counter = 0;
 
         for (final var coordMerge : mergeStats.entrySet()) {
             final var rootCoord = coordMerge.getKey();
             for (final var merge : coordMerge.getValue()) {
-                dataLines.add(getMergeContent(counter, rootCoord, merge));
+                dataLines.add(
+                    CSVUtils.getMergeContent(counter, rootCoord, merge, UCHTime.get(rootCoord)));
                 counter++;
             }
         }
         return dataLines;
     }
 
+
     private List<String[]> buildOverallCsv(
-        final Map<MavenCoordinate, List<MavenCoordinate>> depTree)
-        throws NoSuchFieldException, IllegalAccessException {
+        final Map<MavenCoordinate, List<MavenCoordinate>> depTree) {
         final List<String[]> dataLines = new ArrayList<>();
-        dataLines.add(getHeaderOf("Overall"));
+        dataLines.add(CSVUtils.getHeaderOf("Overall"));
         int counter = 0;
         for (final var coorDeps : depTree.entrySet()) {
             final var coord = coorDeps.getKey();
@@ -423,6 +433,7 @@ public class StatCounter {
         }
         return dataLines;
     }
+
 
     private String[] getContentOfCGPool(final int counter,
                                         final int occurrence,
@@ -438,81 +449,43 @@ public class StatCounter {
         };
     }
 
+
     private String[] getOverallContent(final Map<MavenCoordinate, List<MavenCoordinate>> depTree,
                                        final int counter,
                                        final MavenCoordinate coord,
-                                       final OpalStats opalStats)
-        throws NoSuchFieldException, IllegalAccessException {
+                                       final GeneratorStats generatorStats) {
         final var mergePool = calculateTotalMergeTime(depTree, coord);
         return new String[] {
             /* number */ String.valueOf(counter),
             /* coordinate */ coord.getCoordinate(),
-            /* opalTime */ opalStats == null ? "" : String.valueOf(opalStats.time),
+            /* opalTime */ generatorStats == null ? "" : String.valueOf(generatorStats.time),
             /* totalMergeTime */ String.valueOf(mergePool.getLeft() + mergePool.getRight()),
             /* cgPool */ String.valueOf(mergePool.getRight()),
             /* mergeTime */ String.valueOf(mergePool.getLeft()),
             /* UCHTime */ String.valueOf(UCHTime.get(coord)),
-            /* opalNodes */ opalStats == null ? "-1" :
-            String.valueOf(opalStats.opalGraphStats.nodes),
-            /* opalEdges */ opalStats == null ? "-1" :
-            String.valueOf(opalStats.opalGraphStats.edges),
-            /* mergeNodes */ calculateNumberOf("nodes", coord, depTree),
-            /* mergeEdges */ calculateNumberOf("edges", coord, depTree),
+            /* opalNodes */ generatorStats == null ? "-1" :
+            String.valueOf(generatorStats.graphStats.nodes),
+            /* opalEdges */ generatorStats == null ? "-1" :
+            String.valueOf(generatorStats.graphStats.edges),
+            /* mergeNodes */ calculateNumberOf("nodes", coord),
+            /* mergeEdges */ calculateNumberOf("edges", coord),
             /* dependencies */ toString(depTree.get(coord))};
     }
 
-    private String[] getHeaderOf(final String CSVName) {
-        if (CSVName.equals("Overall")) {
-            return new String[] {"number", "coordinate", "opalTime",
-                "totalMergeTime", "cgPool", "mergeTime", "UCHTime",
-                "opalNodes", "opalEdges", "mergeNodes", "mergeEdges",
-                "dependencies"};
-
-        } else if (CSVName.equals("Opal")) {
-            return new String[] {"number", "coordinate", "opalTime",
-                "nodes", "edges", "dependencies"};
-
-        } else if (CSVName.equals("CGPool")) {
-            return new String[] {"number", "coordinate", "occurrence", "isolatedRevisionTime",
-                "nodes", "edges"};
-
-        } else if (CSVName.equals("Accuracy")) {
-            return new String[] {"number", "coordinate", "source", "precision", "recall",
-                "OPAL", "Merge", "intersection", "dependencies"};
-
-        } else if (CSVName.equals("Log")) {
-            return new String[] {"number", "coordinate", "opalLog", "mergeLog"};
-        }
-
-        //Merge
-        return new String[] {"number", "rootCoordinate", "artifact", "mergeTime", "uchTime",
-            "nodes", "edges", "dependencies"};
-    }
-
-    private String[] getMergeContent(final int counter, final MavenCoordinate rootCoord,
-                                     final MergeTimer merge) {
-        return new String[] {
-            /* number */ String.valueOf(counter),
-            /* rootCoordinate */ rootCoord.getCoordinate(),
-            /* artifact */ String.valueOf(merge.artifact.getCoordinate()),
-            /* mergeTime */ String.valueOf(merge.time),
-            /* uchTime */ String.valueOf(this.UCHTime.get(rootCoord)),
-            /* nodes */ String.valueOf(merge.mergeStats.nodes),
-            /* edges */ String.valueOf(merge.mergeStats.edges),
-            /* dependencies */ toString(merge.deps)};
-    }
 
     private String calculateNumberOf(final String nodesOrEdges,
-                                     final MavenCoordinate coord,
-                                     final Map<MavenCoordinate, List<MavenCoordinate>> depTree)
-        throws NoSuchFieldException, IllegalAccessException {
+                                     final MavenCoordinate coord) {
         int allNodes = 0;
 
         if (mergeStats.containsKey(coord)) {
             for (final var singleMerge : mergeStats.get(coord)) {
-                allNodes = allNodes + singleMerge.mergeStats.getField(nodesOrEdges);
+                try {
+                    allNodes = allNodes + singleMerge.mergeStats.getField(nodesOrEdges);
+                } catch (NoSuchFieldException | IllegalAccessException e) {
+                    throw new RuntimeException(e);
+                }
             }
-        }else {
+        } else {
             return "-1";
         }
 
@@ -525,7 +498,8 @@ public class StatCounter {
             .collect(Collectors.joining(";"));
     }
 
-    private Pair<Long,Long> calculateTotalMergeTime(
+
+    private Pair<Long, Long> calculateTotalMergeTime(
         final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
         final MavenCoordinate coord) {
 
@@ -543,37 +517,11 @@ public class StatCounter {
             for (final var merge : mergeStats.get(coord)) {
                 mergeTotalTime = mergeTotalTime + merge.time;
             }
-        }
-        catch (Exception e){
+        } catch (Exception e) {
             logger.error("Exception occurred", e);
         }
         return ImmutablePair.of(mergeTotalTime, cgPoolTotalTime);
 
-    }
-
-    public static String convertToCSV(final String[] data) {
-        return Stream.of(data)
-            .map(StatCounter::escapeSpecialCharacters)
-            .collect(Collectors.joining(","));
-    }
-
-    public static void writeToCSV(final List<String[]> data,
-                           final String resutPath) throws IOException {
-        File csvOutputFile = new File(resutPath);
-        try (PrintWriter pw = new PrintWriter(csvOutputFile)) {
-            data.stream()
-                .map(StatCounter::convertToCSV)
-                .forEach(pw::println);
-        }
-    }
-
-    public static String escapeSpecialCharacters(String data) {
-        String escapedData = data.replaceAll("\\R", " ");
-        if (data.contains(",") || data.contains("\"") || data.contains("'")) {
-            data = data.replace("\"", "\"\"");
-            escapedData = "\"" + data + "\"";
-        }
-        return escapedData;
     }
 
 }
