@@ -19,29 +19,19 @@
 package evaluation;
 
 import eu.fasten.core.data.DirectedGraph;
-<<<<<<< HEAD
-=======
-import eu.fasten.core.data.PartialJavaCallGraph;
-import eu.fasten.core.data.opal.MavenCoordinate;
->>>>>>> c959ffa (add wala to stat counter)
 import eu.fasten.core.data.JavaType;
+import eu.fasten.core.data.PartialJavaCallGraph;
 import eu.fasten.core.data.opal.MavenCoordinate;
 import java.io.File;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
-<<<<<<< HEAD
-import java.util.Collections;
-=======
->>>>>>> c959ffa (add wala to stat counter)
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import util.CSVUtils;
