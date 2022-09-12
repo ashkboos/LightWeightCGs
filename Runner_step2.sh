@@ -1,7 +1,7 @@
 #!/bin/bash
 
 mkdir $2
-java -jar runnable/LightWeightCGs-1.0-SNAPSHOT-with-dependencies.jar --fromFiles $1 $2 -Xmx200000m
+java -jar runnable/LightWeightCGs-1.0-SNAPSHOT-with-dependencies.jar --analyzeOutDirMergeOPAL $1 $2 -Xmx200000m
 java -jar runnable/LightWeightCGs-1.0-SNAPSHOT-with-dependencies.jar --inputDemography $3 $2/inputStats.csv
 python3 stats.py $2 > $2/stats.txt
 
