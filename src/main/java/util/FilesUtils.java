@@ -44,8 +44,7 @@ public class FilesUtils {
 
     private static final Logger logger = LoggerFactory.getLogger(FilesUtils.class);
 
-    @Nullable
-    public static File[] getFile(@NotNull final File opalDir, final String fileName) {
+    public static File[] getFile(final File opalDir, final String fileName) {
         return opalDir.listFiles((dir, name) -> name.toLowerCase().equals(fileName));
     }
 
@@ -53,16 +52,16 @@ public class FilesUtils {
         FileDeleteStrategy.FORCE.delete(file);
     }
 
-    public static File[] downloadToDir(@NotNull final List<MavenCoordinate> mavenCoordinates)
+    public static File[] downloadToDir(final List<MavenCoordinate> mavenCoordinates)
         throws IOException {
         return download(mavenCoordinates).toArray(File[]::new);
     }
 
-    public static File download(@NotNull final MavenCoordinate dep) {
+    public static File download(final MavenCoordinate dep) {
         return new MavenArtifactDownloader(dep).downloadArtifact(MavenUtilities.MAVEN_CENTRAL_REPO);
     }
 
-    public static void writeCGToFile(final String path, @NotNull final ResultCG cg) {
+    public static void writeCGToFile(final String path,  final ResultCG cg) {
         try {
             CallGraphUtils.writeToFile(path,
                 new DirectedGraphSerializer().graphToJson(cg.dg, cg.uris), File.separator + CG_JSON_FILE);
@@ -71,8 +70,8 @@ public class FilesUtils {
         }
     }
 
-    @NotNull
-    public static ResultCG readCG(@NotNull final File opalDir)
+    
+    public static ResultCG readCG(final File opalDir)
         throws IOException {
         ResultCG result = new ResultCG();
         final var opalFile = getFile(opalDir, CG_JSON_FILE);
@@ -82,24 +81,24 @@ public class FilesUtils {
         return result;
     }
 
-    @NotNull
+    
     private static ResultCG deserializeCGFile(
-        @NotNull final File serializedCGFile) throws IOException {
+         final File serializedCGFile) throws IOException {
         final var cg = Files.readString(serializedCGFile.toPath());
         return new ResultCG(new DirectedGraphDeserializer().jsonToGraph(cg));
     }
 
-    public static File getDir(@NotNull final File pckg, final String opal) {
+    public static File getDir(final File pckg, final String opal) {
         return getFile(pckg, opal)[0];
     }
 
     @Nullable
-    public static File[] getLogs(@NotNull final File opalDir) {
+    public static File[] getLogs(final File opalDir) {
         return getFile(opalDir, "log");
     }
 
-    @NotNull
-    public static File downloadToJar(@NotNull final List<MavenCoordinate> depSet) {
+    
+    public static File downloadToJar(final List<MavenCoordinate> depSet) {
         final var toBeJared = download(depSet);
 
         final File resultFile;
@@ -113,8 +112,8 @@ public class FilesUtils {
         return resultFile;
     }
 
-    @NotNull
-    private static List<File> download(@NotNull final List<MavenCoordinate> depSet) {
+    
+    private static List<File> download(final List<MavenCoordinate> depSet) {
         final List<File> result = new ArrayList<>();
 
         for (final var coord : depSet) {
@@ -132,8 +131,8 @@ public class FilesUtils {
         return result;
     }
 
-    @NotNull
-    public static String readFromLast(@NotNull final File file, final int lines){
+    
+    public static String readFromLast(final File file, final int lines){
         List<String> result = new ArrayList<>();
         int readLines = 0;
         StringBuilder builder = new StringBuilder();
@@ -178,7 +177,7 @@ public class FilesUtils {
         return String.join("\n", result);
     }
 
-    public static void forceDelete(@NotNull File[] depsDir) throws IOException {
+    public static void forceDelete(File[] depsDir) throws IOException {
         for (final var file : depsDir) {
             forceDelete(file);
         }
