@@ -1,8 +1,8 @@
 package evaluation;
 
+import eu.fasten.core.data.opal.MavenArtifactDownloader;
 import eu.fasten.core.data.opal.MavenCoordinate;
-import eu.fasten.core.data.opal.exceptions.MissingArtifactException;
-import java.io.File;
+import eu.fasten.core.maven.utils.MavenUtilities;
 import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
@@ -13,14 +13,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
+import org.jetbrains.annotations.NotNull;
 import org.jooq.tools.csv.CSVReader;
+import util.CSVUtils;
+import util.FilesUtils;
 
 public class InputDemography {
 
-
-    static List<String[]> buildCSV(Map<String, List<Integer>> result) {
+    @NotNull
+    static List<String[]> buildCSV(@NotNull final Map<String, List<Integer>> result) {
         final List<String[]> dataLines = new ArrayList<>();
         dataLines.add(new String[] {"number", "coordinate", "depNum", "numFiles",
             "numFilesWithDeps"});
@@ -38,8 +39,9 @@ public class InputDemography {
         return dataLines;
     }
 
+    @NotNull
     public static Map<MavenCoordinate, List<MavenCoordinate>> readResolvedDataCSV(
-        final String inputPath) throws IOException {
+        @NotNull final String inputPath) throws IOException {
 
         Map<MavenCoordinate, List<MavenCoordinate>> result = new HashMap<>();
 
@@ -54,7 +56,8 @@ public class InputDemography {
         return result;
     }
 
-    private static List<MavenCoordinate> getCoordsList(final String coords) {
+    @NotNull
+    private static List<MavenCoordinate> getCoordsList(@NotNull final String coords) {
         List<MavenCoordinate> result = new ArrayList<>();
 
         var coordinates = coords.split(";");
@@ -62,5 +65,44 @@ public class InputDemography {
             result.add(MavenCoordinate.fromString(coord, "jar"));
         }
         return result;
+    }
+
+    public static void inputDemography(@NotNull final String inputPath, @NotNull final String outputPath) {
+        final var data = CSVUtils.readResolvedCSV(inputPath);
+        Map<String, List<Integer>> result = new HashMap<>();
+        int counter = 0;
+        for (final var entry : data.entrySet()) {
+            int fileCounter = 0;
+            int withoutDeps = 0;
+            List<MavenCoordinate> value = entry.getValue();
+            for (int i = 0; i < value.size(); i++) {
+                MavenCoordinate coord = value.get(i);
+                try {
+                    final var file = new MavenArtifactDownloader(coord).downloadArtifact(
+                        MavenUtilities.MAVEN_CENTRAL_REPO);
+
+                    ZipInputStream is =
+                        new ZipInputStream(new FileInputStream(file.getAbsolutePath()));
+                    ZipEntry ze;
+                    while ((ze = is.getNextEntry()) != null) {
+                        if (!ze.isDirectory()) {
+                            fileCounter++;
+                        }
+                    }
+                    if (i == 0) {
+                        withoutDeps = fileCounter;
+                    }
+                    is.close();
+                    FilesUtils.forceDelete(file);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            System.out.println("\n\n ################################ Coord number : " + counter);
+            counter++;
+            result.put(entry.getKey().getCoordinate(), Arrays.asList(entry.getValue().size(),
+                withoutDeps, fileCounter));
+        }
+        CSVUtils.writeToCSV(buildCSV(result), outputPath);
     }
 }
