@@ -17,13 +17,28 @@
     <dependencies>
         <dependency>
             <groupId>eu.fasten.analyzer</groupId>
-            <artifactId>javacg-opal</artifactId>
+            <artifactId>javacg-wala</artifactId>
             <version>0.0.1-SNAPSHOT</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-simple</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>ch.qos.logback</groupId>
+                    <artifactId>logback-classic</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>eu.fasten.analyzer</groupId>
+            <artifactId>javacg-opal</artifactId>
+            <version>0.0.14-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>eu.fasten</groupId>
             <artifactId>core</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
+            <version>0.0.14-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>me.tongfei</groupId>
@@ -39,7 +54,7 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>RELEASE</version>
+            <version>5.9.0</version>
             <scope>compile</scope>
         </dependency>
     </dependencies>
@@ -63,7 +78,7 @@
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <manifestEntries>
-                                        <Main-Class>evaluation.Evaluator</Main-Class>
+                                        <Main-Class>evaluation.CGEvaluator</Main-Class>
                                         <X-Compile-Source-JDK>11</X-Compile-Source-JDK>
                                         <X-Compile-Target-JDK>11</X-Compile-Target-JDK>
                                         <Plugin-Class>evaluation</Plugin-Class>
