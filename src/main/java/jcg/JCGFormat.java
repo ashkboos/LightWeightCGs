@@ -16,11 +16,10 @@
  * limitations under the License.
  */
 
-package evaluation;
+package jcg;
 
-import eu.fasten.core.data.ExtendedRevisionJavaCallGraph;
 import eu.fasten.core.data.JavaNode;
-import eu.fasten.core.data.FastenURI;
+import eu.fasten.core.data.PartialJavaCallGraph;
 import it.unimi.dsi.fastutil.ints.IntIntPair;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -33,12 +32,14 @@ import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.jetbrains.annotations.NotNull;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class JCGFormat {
 
-    public static JSONObject convertERCGTOJCG(final ExtendedRevisionJavaCallGraph ercg) {
+    @NotNull
+    public static JSONObject convertERCGTOJCG(@NotNull final PartialJavaCallGraph ercg) {
 
         if (ercg.isCallGraphEmpty()) {
             return new JSONObject();
@@ -46,8 +47,9 @@ public class JCGFormat {
         return getJCGJSON(groupByCallSite(getAdjacencyList(ercg)));
     }
 
+    @NotNull
     private static JSONObject getJCGJSON(
-            final Map<String, Map<Map<Object, Object>, List<String>>> cgWithCallSites) {
+        @NotNull final Map<String, Map<Map<Object, Object>, List<String>>> cgWithCallSites) {
 
         final var result = new JSONObject();
         final var reachableMethods = new JSONArray();
@@ -82,7 +84,7 @@ public class JCGFormat {
 
     }
 
-    private static <E> void putToJsonArray(final JSONArray array, final String key,
+    private static <E> void putToJsonArray(@NotNull final JSONArray array, final String key,
                                            final E content) {
         array.put(new JSONObject() {
             {
@@ -91,11 +93,13 @@ public class JCGFormat {
         });
     }
 
+    @NotNull
     private static JSONObject getMethodJSON(final String type, final String uri) {
         return getMethodJSON(type + "." + StringUtils.substringAfter(StringUtils.substringBefore(uri,"("),
             "."));
     }
 
+    @NotNull
     private static JSONObject getMethodJSON(final String uri) {
 
         final var method = decodeMethod(uri);
@@ -126,7 +130,8 @@ public class JCGFormat {
 
     }
 
-    private static String dereletivize(String type, String param) {
+    @NotNull
+    private static String dereletivize(String type, @NotNull String param) {
         return !param.contains("/") && !param.contains(".") ? type + "/" + param : param;
     }
 
@@ -139,7 +144,7 @@ public class JCGFormat {
     }
 
 
-    private static String toJVMType(final String type) {
+    private static String toJVMType(@NotNull final String type) {
 
         String result = type.replace(".", "/"), brakets = "";
 
@@ -180,8 +185,9 @@ public class JCGFormat {
         return WraperTypes.getOrDefault(type, type);
     }
 
+    @NotNull
     private static Map<String, Map<Map<Object, Object>, List<String>>> groupByCallSite(
-            final Map<String, List<Pair<String, Map<Object, Object>>>> cg) {
+        @NotNull final Map<String, List<Pair<String, Map<Object, Object>>>> cg) {
 
         final Map<String, Map<Map<Object, Object>, List<String>>> result = new HashMap<>();
 
@@ -199,36 +205,28 @@ public class JCGFormat {
         return result;
     }
 
-    private static String getSignature(final String rawEntity) {
+    @NotNull
+    private static String getSignature(@NotNull final String rawEntity) {
         return rawEntity.substring(rawEntity.indexOf(".") + 1);
     }
 
+    @NotNull
     private static Map<String, List<Pair<String, Map<Object, Object>>>> getAdjacencyList(
-            final ExtendedRevisionJavaCallGraph ercg) {
+        @NotNull final PartialJavaCallGraph ercg) {
 
         final Map<String, List<Pair<String, Map<Object, Object>>>> result = new HashMap<>();
 
         final var methods = ercg.mapOfAllMethods();
-        for (final var internalCall : ercg.getGraph().getInternalCalls().entrySet()) {
+        for (final var internalCall : ercg.getGraph().getCallSites().entrySet()) {
             putCall(result, methods, internalCall);
-        }
-
-        for (final var externalCall : ercg.getGraph()
-                .getExternalCalls().entrySet()) {
-            putCall(result, methods, externalCall);
-        }
-
-        for (final var resolvedCall : ercg.getGraph()
-                .getResolvedCalls().entrySet()) {
-            putCall(result, methods, resolvedCall);
         }
 
         return result;
     }
 
-    private static void putCall(final Map<String, List<Pair<String, Map<Object, Object>>>> result,
-                                final Map<Integer, JavaNode> methods,
-                                final Map.Entry<IntIntPair, Map<Object, Object>> call) {
+    private static void putCall(@NotNull final Map<String, List<Pair<String, Map<Object, Object>>>> result,
+                                @NotNull final Map<Integer, JavaNode> methods,
+                                @NotNull final Map.Entry<IntIntPair, Map<Object, Object>> call) {
 
         final var source = methods.get(call.getKey().keyInt()).getSignature();
         final var targets = result.getOrDefault(source, new ArrayList<>());
