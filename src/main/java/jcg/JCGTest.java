@@ -22,6 +22,7 @@ import static util.CGUtils.generateCGFromFile;
 
 import data.ResultCG;
 import eu.fasten.analyzer.javacgopal.data.CGAlgorithm;
+import eu.fasten.core.data.Constants;
 import eu.fasten.core.data.PartialJavaCallGraph;
 import eu.fasten.core.data.opal.MavenCoordinate;
 import eu.fasten.core.data.opal.exceptions.OPALException;
@@ -58,11 +59,12 @@ public class JCGTest {
                     final var testCaseName = testCase.getName();
                     final var coord = new MavenCoordinate(testCaseName, "", "", "");
                     final var opal = generateCGFromFile(bin, CGAlgorithm.CHA,
-                        INCLUDING_ALL_SUBTYPES, coord.toString());
+                        INCLUDING_ALL_SUBTYPES, coord.toString(), Constants.opalGenerator);
                     final ResultCG thisTest =
                         new ResultCG(CGEvaluator.toLocalDirectedGraph(opal),
                             opal.mapOfFullURIStrings().entrySet().stream().collect(
-                                Collectors.toMap(e -> Long.valueOf(e.getKey()), Map.Entry::getValue)));
+                                Collectors.toMap(e -> Long.valueOf(e.getKey()),
+                                    Map.Entry::getValue)));
 
                     for (final var packag : Objects.requireNonNull(bin.listFiles())) {
 
@@ -71,8 +73,9 @@ public class JCGTest {
                             if (!classfile.getName().contains(" ")) {
                                 final var product =
                                     classfile.getName().replace("$", "").replace(" ", "");
-                                rcgs.add(generateCGFromFile(classfile, CGAlgorithm.CHA, ONLY_STATIC_CALLSITES,
-                                    ""));
+                                rcgs.add(generateCGFromFile(classfile, CGAlgorithm.CHA,
+                                    ONLY_STATIC_CALLSITES,
+                                    "", Constants.opalGenerator));
                             }
                         }
 
@@ -93,13 +96,13 @@ public class JCGTest {
     }
 
 
-
-    @NotNull
     public static Map<String, List<Pair<String, String>>> compareMergeOPAL(
-        @NotNull final List<ResultCG> merges,
-        @NotNull final ResultCG opal) {
+        final List<ResultCG> merges,
+        final ResultCG opal) {
         final var mergePairs =
-            merges.stream().flatMap(directedGraphMapPair -> StitchingEdgeTest.convertToNodePairs(directedGraphMapPair).stream()).collect(Collectors.toList());
+            merges.stream().flatMap(
+                directedGraphMapPair -> StitchingEdgeTest.convertToNodePairs(directedGraphMapPair)
+                    .stream()).collect(Collectors.toList());
         final var opalPairs = StitchingEdgeTest.convertToNodePairs(opal);
 
         return Map.of("merge", mergePairs, "opal", opalPairs,
@@ -107,9 +110,8 @@ public class JCGTest {
     }
 
 
-    @NotNull
-    public static ArrayList<Pair<String, String>> diff(@NotNull final List<Pair<String, String>> firstEdges,
-                                                       @NotNull final List<Pair<String, String>> secondEdges) {
+    public static ArrayList<Pair<String, String>> diff(final List<Pair<String, String>> firstEdges,
+                                                       final List<Pair<String, String>> secondEdges) {
         final var temp1 = new ArrayList<>(firstEdges);
         final var temp2 = new ArrayList<>(secondEdges);
         temp1.removeAll(temp2);
@@ -117,9 +119,8 @@ public class JCGTest {
     }
 
 
-    @NotNull
     private List<String[]> buildOverallCsv(
-        @NotNull final Map<String, Map<String, List<Pair<String, String>>>> testCases) {
+        final Map<String, Map<String, List<Pair<String, String>>>> testCases) {
         final List<String[]> dataLines = new ArrayList<>();
         dataLines.add(getHeader());
         int counter = 0;
@@ -130,9 +131,9 @@ public class JCGTest {
         return dataLines;
     }
 
-    @NotNull
+
     private String[] getContent(final int counter,
-                                @NotNull final Map<String, List<Pair<String, String>>> edges,
+                                final Map<String, List<Pair<String, String>>> edges,
                                 final String testCaseName) {
         return new String[] {
             /* number */ String.valueOf(counter),
@@ -144,24 +145,25 @@ public class JCGTest {
         };
     }
 
-    @NotNull
-    private String getSize(@Nullable final Map<String, List<Pair<String, String>>> edges, final String key) {
+
+    private String getSize(@Nullable final Map<String, List<Pair<String, String>>> edges,
+                           final String key) {
         if (edges != null) {
             return String.valueOf(edges.get(key).size());
         }
         return "";
     }
 
-    @NotNull
-    private String geteEdgeContent(@NotNull final Map<String, List<Pair<String, String>>> edges,
+
+    private String geteEdgeContent(final Map<String, List<Pair<String, String>>> edges,
                                    final String scope) {
         return CallGraphUtils.toStringEdges(edges.get(scope).stream()
             .map(stringStringPair -> org.apache.commons.lang3.tuple.Pair.of(stringStringPair.left(),
                 stringStringPair.right())).collect(
-            Collectors.toList()));
+                Collectors.toList()));
     }
 
-    @NotNull
+
     private String[] getHeader() {
         return new String[] {
             "num", "testCase", "merge", "mergeNum", "opal", "opalNum"

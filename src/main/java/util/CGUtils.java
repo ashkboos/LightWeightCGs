@@ -18,42 +18,70 @@
 
 package util;
 
+import com.ibm.wala.ipa.callgraph.CallGraph;
+import com.ibm.wala.ipa.cha.ClassHierarchyException;
+import com.ibm.wala.util.CancelException;
 import eu.fasten.analyzer.javacgopal.data.CGAlgorithm;
 import eu.fasten.analyzer.javacgopal.data.OPALCallGraph;
 import eu.fasten.analyzer.javacgopal.data.OPALCallGraphConstructor;
 import eu.fasten.analyzer.javacgopal.data.OPALPartialCallGraphConstructor;
+import eu.fasten.analyzer.javacgwala.data.callgraph.Algorithm;
+import eu.fasten.analyzer.javacgwala.data.callgraph.CallGraphConstructor;
+import eu.fasten.analyzer.javacgwala.data.callgraph.PartialCallGraphGenerator;
+import eu.fasten.analyzer.javacgwala.data.callgraph.analyzer.WalaResultAnalyzer;
 import eu.fasten.core.data.CallPreservationStrategy;
 import eu.fasten.core.data.Constants;
 import eu.fasten.core.data.PartialJavaCallGraph;
 import eu.fasten.core.data.opal.MavenCoordinate;
 import java.io.File;
-import org.jetbrains.annotations.NotNull;
+import java.io.IOException;
 
 public class CGUtils {
 
-    @NotNull
+
     public static PartialJavaCallGraph generateCGFromFile(final File file,
                                                           final CGAlgorithm algorithm,
                                                           final CallPreservationStrategy callPreservationStrategy,
-                                                          @NotNull final String coord) {
+                                                          final String coord,
+                                                          final String generator) {
 
         return generateCGFromFile(file, MavenCoordinate.fromString(coord, ""), algorithm,
-            callPreservationStrategy);
+            callPreservationStrategy, generator);
     }
-    @NotNull
+
     public static PartialJavaCallGraph generateCGFromFile(final File file,
-                                                          @NotNull final MavenCoordinate mavenCoordinate,
+                                                          final MavenCoordinate mavenCoordinate,
                                                           final CGAlgorithm algorithm,
-                                                          final CallPreservationStrategy callPreservationStrategy) {
+                                                          final CallPreservationStrategy callPreservationStrategy,
+                                                          final String generator) {
 
-        final var opalCG = new OPALCallGraphConstructor().construct(file, algorithm);
-        return convertOpalCGToFastenCG(mavenCoordinate, callPreservationStrategy, opalCG);
+        if (generator.equals(Constants.opalGenerator)) {
+            final var opalCG = new OPALCallGraphConstructor().construct(file, algorithm);
+            return convertOpalCGToFastenCG(mavenCoordinate, callPreservationStrategy, opalCG);
+        } else {
+            final CallGraph callgraph;
+            try {
+                callgraph = CallGraphConstructor.generateCallGraph(file.getAbsolutePath(),
+                    Algorithm.CHA);
+            } catch (IOException | ClassHierarchyException | CancelException e) {
+                throw new RuntimeException(e);
+            }
+
+            final var pcg =
+                PartialCallGraphGenerator.generateEmptyPCG(Constants.mvnForge,
+                    mavenCoordinate.getProduct(), mavenCoordinate.getVersionConstraint(), -1,
+                    Constants.walaGenerator);
+
+            WalaResultAnalyzer.wrap(callgraph, pcg, callPreservationStrategy);
+            return pcg;
+        }
     }
 
-    @NotNull
-    public static PartialJavaCallGraph convertOpalCGToFastenCG(@NotNull final MavenCoordinate mavenCoordinate,
-                                                               final CallPreservationStrategy callPreservationStrategy,
-                                                               final OPALCallGraph opalCG) {
+
+    public static PartialJavaCallGraph convertOpalCGToFastenCG(
+        final MavenCoordinate mavenCoordinate,
+        final CallPreservationStrategy callPreservationStrategy,
+        final OPALCallGraph opalCG) {
         final var partialCallGraph =
             new OPALPartialCallGraphConstructor().construct(opalCG, callPreservationStrategy);
 

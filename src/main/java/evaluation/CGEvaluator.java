@@ -71,6 +71,10 @@ public class CGEvaluator {
         configLogs();
         printMemInfo();
         switch (args[0]) {
+            case "--inputDemography":
+                InputDemography.inputDemography(args[1], args[2]);
+                break;
+
             case "--resolve":
                 resolveDependencies(args[1], args[2]);
                 break;
@@ -88,15 +92,15 @@ public class CGEvaluator {
                 generateAndWriteToFile(args[1], args[2], CGEvaluator::generateAndWriteWala);
                 break;
 
-            case "--analyzeOutDirMergeOPAL":
-                analyzeOutDirMergeOPAL(args[1], args[2]);
+            case "--analyzeOutDir":
+                analyzeOutDir(args[1], args[2], args[3], args[4]);
                 break;
-
         }
     }
 
-    private static void analyzeOutDirMergeOPAL( final String rootPath,
-                                               final String outPath) {
+    private static void analyzeOutDir(final String rootPath, final String outPath,
+                                      final String generatorFolder,
+                                      final String mergerFolder) {
         logger.info("Start analyzing directory...");
         final var statCounter = new StatCounter();
         final var depTree = new ConcurrentHashMap<MavenCoordinate, List<MavenCoordinate>>();
@@ -104,20 +108,15 @@ public class CGEvaluator {
 
         Arrays.stream(Objects.requireNonNull(new File(rootPath).listFiles())).parallel()
             .forEach(pkgDir -> {
-                final var opalDir = FilesUtils.getDir(pkgDir, "opal");
-                final var mergeDir = FilesUtils.getDir(pkgDir, "merge");
-
+                final var generatorDir = FilesUtils.getDir(pkgDir, generatorFolder);
+                final var mergeDir = FilesUtils.getDir(pkgDir, mergerFolder);
                 final var depEntry =
-                    StatCounterDeserializer.updateFromFile(opalDir, mergeDir, statCounter);
+                    StatCounterDeserializer.updateFromFile(generatorDir, mergeDir, statCounter);
 
                 depTree.put(depEntry.root, depEntry.deps);
 
-                final var opalCG = getResultCG(opalDir);
+                final var opalCG = getResultCG(generatorDir);
                 if (opalCG.isEmpty()) {
-                    return;
-                }
-                final var walaCG = getResultCG(opalDir);
-                if (walaCG.isEmpty()) {
                     return;
                 }
                 final var mergedCG = getResultCG(mergeDir);
@@ -127,56 +126,55 @@ public class CGEvaluator {
 
                 statCounter.addAccuracy(depEntry.root, calcPrecisionRecall(groupBySource(
                     convertOpalAndMergeToNodePairs(mergedCG, opalCG))));
-
                 logger.info("pckg number :" + counter.getAndAdd(1));
-
                 System.gc();
-
             });
 
         statCounter.concludeMerge(outPath);
-        statCounter.concludeOpal(depTree, outPath);
+        statCounter.concludeGenerator(depTree, outPath);
         statCounter.concludeLogs(outPath);
         statCounter.concludeAll(depTree, outPath);
 
     }
 
-    private static void generateAndWriteToFile( final String row, final String outPath,
-                                                final BiFunction<String, List<MavenCoordinate>, ResultCG> generateFunc) {
+    private static void generateAndWriteToFile(final String row, final String outPath,
+                                               final BiFunction<String, List<MavenCoordinate>, ResultCG> generateFunc) {
         final var coords = CSVUtils.getCoordinatesFromRow(row);
         final var cg = generateFunc.apply(outPath, coords);
         FilesUtils.writeCGToFile(outPath, cg);
     }
 
-    
     private static ResultCG generateAndWriteMerge(final String path,
-                                                   final List<MavenCoordinate> coords) {
+                                                  final List<MavenCoordinate> coords) {
         StatCounter statCounter = new StatCounter();
-        final ResultCG cg = createCGPoolAndMergeDepSet(coords, statCounter, new HashMap<>());
+        String generator = Constants.opalGenerator;
+        if (path.contains("wala")) {
+            generator = Constants.walaGenerator;
+        }
+        final ResultCG cg =
+            createCGPoolAndMergeDepSet(coords, statCounter, new HashMap<>(), generator);
         statCounter.concludeMerge(path);
         return cg;
     }
 
-    
     private static ResultCG generateAndWriteOpal(final String outPath,
-                                                  final List<MavenCoordinate> coords) {
+                                                 final List<MavenCoordinate> coords) {
         StatCounter statCounter = new StatCounter();
         final ResultCG cg = generateForOPALAndMeasureTime(statCounter, coords);
-        statCounter.concludeOpal(Map.of(coords.get(0), coords), outPath);
+        statCounter.concludeGenerator(Map.of(coords.get(0), coords), outPath);
         return cg;
     }
 
     private static ResultCG generateAndWriteWala(final String outPath,
-                                                  final List<MavenCoordinate> coords) {
+                                                 final List<MavenCoordinate> coords) {
         StatCounter statCounter = new StatCounter();
         final ResultCG cg = generateForWalaAndMeasureTime(statCounter, coords);
-        statCounter.concludeWala(Map.of(coords.get(0), coords), outPath);
+        statCounter.concludeGenerator(Map.of(coords.get(0), coords), outPath);
         return cg;
     }
 
-    
-    private static ResultCG generateForWalaAndMeasureTime( final StatCounter statCounter,
-                                                           final List<MavenCoordinate> depSet) {
+    private static ResultCG generateForWalaAndMeasureTime(final StatCounter statCounter,
+                                                          final List<MavenCoordinate> depSet) {
         ResultCG result = new ResultCG();
 
         final var currentVP = depSet.get(0);
@@ -199,7 +197,8 @@ public class CGEvaluator {
 
             final var pcg =
                 PartialCallGraphGenerator.generateEmptyPCG(Constants.mvnForge,
-                    currentVP.getProduct(), currentVP.getVersionConstraint(), -1, Constants.walaGenerator);
+                    currentVP.getProduct(), currentVP.getVersionConstraint(), -1,
+                    Constants.walaGenerator);
 
             WalaResultAnalyzer.wrap(callgraph, pcg, INCLUDING_ALL_SUBTYPES);
 
@@ -240,14 +239,14 @@ public class CGEvaluator {
         System.setProperty("org.jline.terminal.dumb", "true");
     }
 
-    private static void resolveDependencies( final String input,  final String output) {
+    private static void resolveDependencies(final String input, final String output) {
         final var resolvedData =
             resolveAll(CSVUtils.dropTheHeader(CSVUtils.readCSVColumn(input, 0)));
         CSVUtils.writeToCSV(CSVUtils.buildDataCSVofResolvedCoords(resolvedData), output);
         logger.info("Wrote resolved data into file successfully!");
     }
 
-    private static void splitInput( final String inputPath,  final String chunkNum,
+    private static void splitInput(final String inputPath, final String chunkNum,
                                    final String resultPath) {
         final var data = CSVUtils.readResolvedCSV(inputPath);
         final var chunks = splitToChunks(data, Integer.parseInt(chunkNum));
@@ -259,9 +258,9 @@ public class CGEvaluator {
         logger.info("Wrote data chunks into file successfully!");
     }
 
-    
+
     private static List<Map<MavenCoordinate, List<MavenCoordinate>>> splitToChunks(
-         final Map<MavenCoordinate, List<MavenCoordinate>> data, final int chunkNum) {
+        final Map<MavenCoordinate, List<MavenCoordinate>> data, final int chunkNum) {
         final List<Map<MavenCoordinate, List<MavenCoordinate>>> result = new ArrayList<>();
         final var chunkSize = data.size() / chunkNum;
         int counter = 0;
@@ -280,7 +279,7 @@ public class CGEvaluator {
     }
 
 
-    private static ResultCG getResultCG( final File dir) {
+    private static ResultCG getResultCG(final File dir) {
         ResultCG opalCG = new ResultCG();
         try {
             opalCG = FilesUtils.readCG(dir);
@@ -290,14 +289,13 @@ public class CGEvaluator {
         return opalCG;
     }
 
-    
     static ResultCG createCGPoolAndMergeDepSet(
-         final List<MavenCoordinate> depSet,  StatCounter statCounter,
-         final Map<MavenCoordinate, PartialJavaCallGraph> cgPool) {
+        final List<MavenCoordinate> depSet, StatCounter statCounter,
+        final Map<MavenCoordinate, PartialJavaCallGraph> cgPool, String generator) {
 
         for (final var dep : depSet) {
             if (!cgPool.containsKey(dep)) {
-                addToCGPoolAndMeasureTime(statCounter, cgPool, dep);
+                addToCGPoolAndMeasureTime(statCounter, cgPool, dep, generator);
             }
         }
 
@@ -307,8 +305,8 @@ public class CGEvaluator {
         return mergeDepSetAndMeasureTime(cgPool, statCounter, depSet);
     }
 
-    
-    static List<StatCounter.SourceStats> calcPrecisionRecall( final Map<String, Map<String,
+
+    static List<StatCounter.SourceStats> calcPrecisionRecall(final Map<String, Map<String,
         List<String>>> edges) {
         final var opal = edges.get("opal");
         final var merge = edges.get("merge");
@@ -336,16 +334,16 @@ public class CGEvaluator {
         return result;
     }
 
-    private static Set<String> intersect( final Set<String> first,
-                                          final Set<String> second) {
+    private static Set<String> intersect(final Set<String> first,
+                                         final Set<String> second) {
         final var temp1 = new ArrayList<>(first);
         final var temp2 = new ArrayList<>(second);
         return temp1.stream().distinct().filter(temp2::contains).collect(Collectors.toSet());
     }
 
-    
+
     public static Map<MavenCoordinate, List<MavenCoordinate>> resolveAll(
-         final List<String> dataSet) {
+        final List<String> dataSet) {
 
         ProgressBar pb = new ProgressBar("Resolving", dataSet.size());
         pb.start();
@@ -366,10 +364,9 @@ public class CGEvaluator {
         return result;
     }
 
-    
     private static ResultCG mergeDepSetAndMeasureTime(
-         final Map<MavenCoordinate, PartialJavaCallGraph> cgPool,  StatCounter statCounter,
-         final List<MavenCoordinate> depSet) {
+        final Map<MavenCoordinate, PartialJavaCallGraph> cgPool, StatCounter statCounter,
+        final List<MavenCoordinate> depSet) {
         final var pcgs = depSet.stream().map(cgPool::get)
             .filter(Objects::nonNull).collect(Collectors.toList());
 
@@ -411,14 +408,14 @@ public class CGEvaluator {
     }
 
     private static List<MavenCoordinate> convertToFastenCoordinates(
-         final List<org.jboss.shrinkwrap.resolver.api.maven.coordinate.MavenCoordinate> revisions) {
+        final List<org.jboss.shrinkwrap.resolver.api.maven.coordinate.MavenCoordinate> revisions) {
         return revisions.stream().map(CGEvaluator::convertToFastenCoordinate)
             .collect(Collectors.toList());
     }
-    
+
     static ResultCG generateForOPALAndMeasureTime(
-         final StatCounter statCounter,
-         final List<MavenCoordinate> depSet) {
+        final StatCounter statCounter,
+        final List<MavenCoordinate> depSet) {
 
         ResultCG result = new ResultCG();
 
@@ -457,8 +454,8 @@ public class CGEvaluator {
 
     }
 
-    
-    public static List<MavenCoordinate> getDepsOnly( final List<MavenCoordinate> depSet) {
+
+    public static List<MavenCoordinate> getDepsOnly(final List<MavenCoordinate> depSet) {
         List<MavenCoordinate> result = new ArrayList<>();
         for (int i = 0; i < depSet.size(); i++) {
             if (i == 0) {
@@ -469,21 +466,21 @@ public class CGEvaluator {
         return result;
     }
 
-    
+
     private static ResultCG toDirectedCGAndUris(
-        final OPALCallGraph oCG,  MavenCoordinate coordinate) {
+        final OPALCallGraph oCG, MavenCoordinate coordinate) {
         final var rcg = CGUtils.convertOpalCGToFastenCG(coordinate, INCLUDING_ALL_SUBTYPES, oCG);
         final var dcg = toLocalDirectedGraph(rcg);
         return new ResultCG(dcg, toMapOfLongAndUri(rcg));
     }
 
-    private static Map<Long, String> toMapOfLongAndUri( final PartialJavaCallGraph rcg) {
+    private static Map<Long, String> toMapOfLongAndUri(final PartialJavaCallGraph rcg) {
         return rcg.mapOfFullURIStrings().entrySet().stream()
             .collect(Collectors.toMap(e -> Long.valueOf(e.getKey()), Map.Entry::getValue));
     }
 
-    
-    public static DirectedGraph toLocalDirectedGraph( final PartialJavaCallGraph rcg) {
+
+    public static DirectedGraph toLocalDirectedGraph(final PartialJavaCallGraph rcg) {
         DirectedGraph dcg = new MergedDirectedGraph();
         final var internals = rcg.mapOfFullURIStrings();
         for (final var intInt : rcg.getGraph().getCallSites().entrySet()) {
@@ -499,9 +496,10 @@ public class CGEvaluator {
         return dcg;
     }
 
-    private static void addToCGPoolAndMeasureTime( final StatCounter statCounter,
-                                                   final Map<MavenCoordinate, PartialJavaCallGraph> cgPool,
-                                                   final MavenCoordinate dep) {
+    private static void addToCGPoolAndMeasureTime(final StatCounter statCounter,
+                                                  final Map<MavenCoordinate, PartialJavaCallGraph> cgPool,
+                                                  final MavenCoordinate dep,
+                                                  final String generator) {
         if (cgPool.containsKey(dep)) {
             statCounter.addExistingToCGPool(dep);
             return;
@@ -512,7 +510,8 @@ public class CGEvaluator {
 
             final long startTime = System.currentTimeMillis();
             final var rcg =
-                CGUtils.generateCGFromFile(file, dep, CGAlgorithm.CHA, ONLY_STATIC_CALLSITES);
+                CGUtils.generateCGFromFile(file, dep, CGAlgorithm.CHA, ONLY_STATIC_CALLSITES,
+                    generator);
             statCounter.addNewCGtoPool(dep, System.currentTimeMillis() - startTime,
                 new StatCounter.GraphStats(rcg));
 
@@ -524,9 +523,9 @@ public class CGEvaluator {
         }
     }
 
-    
+
     private static MavenCoordinate convertToFastenCoordinate(
-         final org.jboss.shrinkwrap.resolver.api.maven.coordinate.MavenCoordinate revision) {
+        final org.jboss.shrinkwrap.resolver.api.maven.coordinate.MavenCoordinate revision) {
         return new MavenCoordinate(revision.getGroupId(),
             revision.getArtifactId(), revision.getVersion(),
             revision.getPackaging().getClassifier());

@@ -34,8 +34,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.apache.commons.io.FileDeleteStrategy;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,16 +59,16 @@ public class FilesUtils {
         return new MavenArtifactDownloader(dep).downloadArtifact(MavenUtilities.MAVEN_CENTRAL_REPO);
     }
 
-    public static void writeCGToFile(final String path,  final ResultCG cg) {
+    public static void writeCGToFile(final String path, final ResultCG cg) {
         try {
             CallGraphUtils.writeToFile(path,
-                new DirectedGraphSerializer().graphToJson(cg.dg, cg.uris), File.separator + CG_JSON_FILE);
+                new DirectedGraphSerializer().graphToJson(cg.dg, cg.uris),
+                File.separator + CG_JSON_FILE);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    
     public static ResultCG readCG(final File opalDir)
         throws IOException {
         ResultCG result = new ResultCG();
@@ -81,9 +79,7 @@ public class FilesUtils {
         return result;
     }
 
-    
-    private static ResultCG deserializeCGFile(
-         final File serializedCGFile) throws IOException {
+    private static ResultCG deserializeCGFile(final File serializedCGFile) throws IOException {
         final var cg = Files.readString(serializedCGFile.toPath());
         return new ResultCG(new DirectedGraphDeserializer().jsonToGraph(cg));
     }
@@ -92,12 +88,10 @@ public class FilesUtils {
         return getFile(pckg, opal)[0];
     }
 
-    @Nullable
     public static File[] getLogs(final File opalDir) {
         return getFile(opalDir, "log");
     }
 
-    
     public static File downloadToJar(final List<MavenCoordinate> depSet) {
         final var toBeJared = download(depSet);
 
@@ -112,7 +106,6 @@ public class FilesUtils {
         return resultFile;
     }
 
-    
     private static List<File> download(final List<MavenCoordinate> depSet) {
         final List<File> result = new ArrayList<>();
 
@@ -131,8 +124,7 @@ public class FilesUtils {
         return result;
     }
 
-    
-    public static String readFromLast(final File file, final int lines){
+    public static String readFromLast(final File file, final int lines) {
         List<String> result = new ArrayList<>();
         int readLines = 0;
         StringBuilder builder = new StringBuilder();
@@ -142,16 +134,17 @@ public class FilesUtils {
             long fileLength = file.length() - 1;
             // Set the pointer at the last of the file
             randomAccessFile.seek(fileLength);
-            for(long pointer = fileLength; pointer >= 0; pointer--){
+            for (long pointer = fileLength; pointer >= 0; pointer--) {
                 randomAccessFile.seek(pointer);
                 char c;
                 // read from the last one char at the time
-                c = (char)randomAccessFile.read();
+                c = (char) randomAccessFile.read();
                 // break when end of the line
-                if(c == '\n'){
+                if (c == '\n') {
                     readLines++;
-                    if(readLines == lines)
+                    if (readLines == lines) {
                         break;
+                    }
                 }
                 builder.append(c);
             }
@@ -161,11 +154,10 @@ public class FilesUtils {
             result.add(builder.toString());
         } catch (FileNotFoundException e) {
             e.printStackTrace();
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             e.printStackTrace();
-        }finally{
-            if(randomAccessFile != null){
+        } finally {
+            if (randomAccessFile != null) {
                 try {
                     randomAccessFile.close();
                 } catch (IOException e) {

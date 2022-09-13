@@ -259,17 +259,11 @@ public class StatCounter {
         CSVUtils.writeToCSV(buildMergeCSV(), resultPath + "/Merge.csv");
     }
 
-    public void concludeOpal(final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
-                             final String resultPath) {
+    public void concludeGenerator(final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
+                                  final String resultPath) {
 
         CSVUtils.writeToCSV(
-            buildGeneratorCSV(resolvedData, opalStats), resultPath + "/resultOpal.csv");
-    }
-
-    public void concludeWala(Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
-                             String resultPath) {
-        CSVUtils.writeToCSV(
-            buildGeneratorCSV(resolvedData, walaStats), resultPath + "/resultWala.csv");
+            buildGeneratorCSV(resolvedData, opalStats), resultPath + "/generator.csv");
     }
 
     public void concludeLogs(final String outPath) {

@@ -79,9 +79,7 @@ public class HelperScripts {
                 LegacyCGEvaluator.measureAll(CSVUtils.readResolvedCSV(args[1]), args[2],
                     Integer.parseInt(args[3]));
                 break;
-            case "--inputDemography":
-                InputDemography.inputDemography(args[1], args[2]);
-                break;
+
         }
 
     }

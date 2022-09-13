@@ -41,7 +41,7 @@ public class LegacyCGEvaluator {
             runOPALandMerge(resolvedData, statCounter);
 
             statCounter.concludeMerge(outPath);
-            statCounter.concludeOpal(resolvedData, outPath);
+            statCounter.concludeGenerator(resolvedData, outPath);
             statCounter.concludeAll(resolvedData, outPath);
             logger.info("Wrote results of evaluation into file successfully!");
         }
@@ -59,7 +59,8 @@ public class LegacyCGEvaluator {
         for (final var row : resolvedData.entrySet()) {
             final var toMerge = row.getKey();
             final ResultCG merge =
-                CGEvaluator.createCGPoolAndMergeDepSet(resolvedData.get(toMerge), statCounter, cgPool);
+                CGEvaluator.createCGPoolAndMergeDepSet(resolvedData.get(toMerge), statCounter, cgPool,
+                    Constants.opalGenerator);
             pb.step();
             for (final var dep : resolvedData.get(toMerge)) {
                 if (remainedDependents.get(dep) != null) {
