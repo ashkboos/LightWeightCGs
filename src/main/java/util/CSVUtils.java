@@ -22,8 +22,8 @@ public class CSVUtils {
     public static final String DEP_SEPERATOR = ";";
     public static final String COLUMN_SEPERATOR = ",";
 
-    public static void writeToCSV(@NotNull final List<String[]> data,
-                                  @NotNull final String resultPath){
+    public static void writeToCSV( final List<String[]> data,
+                                   final String resultPath){
         File csvOutputFile = new File(resultPath);
         try (PrintWriter pw = new PrintWriter(csvOutputFile)) {
             data.stream()
@@ -40,8 +40,8 @@ public class CSVUtils {
             .collect(Collectors.joining(","));
     }
 
-    @NotNull
-    public static String escapeSpecialCharacters(@NotNull String data) {
+    
+    public static String escapeSpecialCharacters( String data) {
         String escapedData = data.replaceAll("\\R", " ");
         if (data.contains(",") || data.contains("\"") || data.contains("'")) {
             data = data.replace("\"", "\"\"");
@@ -50,9 +50,9 @@ public class CSVUtils {
         return escapedData;
     }
 
-    @NotNull
+    
     public static Map<MavenCoordinate, List<MavenCoordinate>> readResolvedCSV(
-        @NotNull final String inputPath) {
+         final String inputPath) {
 
         Map<MavenCoordinate, List<MavenCoordinate>> result = new HashMap<>();
 
@@ -68,8 +68,8 @@ public class CSVUtils {
         return result;
     }
 
-    @NotNull
-    private static List<MavenCoordinate> converstStringToCoordList(@NotNull final String coords) {
+    
+    private static List<MavenCoordinate> converstStringToCoordList( final String coords) {
         List<MavenCoordinate> result = new ArrayList<>();
         for (final var coord : coords.split(DEP_SEPERATOR)) {
             result.add(MavenCoordinate.fromString(coord, JAR));
@@ -77,14 +77,14 @@ public class CSVUtils {
         return result;
     }
 
-    @NotNull
-    public static List<MavenCoordinate> getCoordinatesFromRow(@NotNull final String row) {
+    
+    public static List<MavenCoordinate> getCoordinatesFromRow( final String row) {
         final var rowColumns = row.split(COLUMN_SEPERATOR);
         return converstStringToCoordList(rowColumns[2]);
     }
 
-    @NotNull
-    public static List<Map<String, String>> readCSV(@NotNull final String inputPath) {
+    
+    public static List<Map<String, String>> readCSV( final String inputPath) {
         final List<Map<String, String>> result = new ArrayList<>();
         if (!new File(inputPath).exists()) {
             return result;
@@ -111,11 +111,12 @@ public class CSVUtils {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            return result;
+
+        return result;
     }
 
-    @NotNull
-    public static List<String> readCSVColumn(@NotNull final String inputPath,
+    
+    public static List<String> readCSVColumn( final String inputPath,
                                              final int columnNum) {
         List<String> result = new ArrayList<>();
         try (var csvReader = new CSVReader(new FileReader(inputPath))) {
@@ -129,23 +130,22 @@ public class CSVUtils {
         return result;
     }
 
-    @NotNull
-    public static List<String> dropTheHeader(@NotNull final List<String> csv) {
+    
+    public static List<String> dropTheHeader( final List<String> csv) {
         csv.remove(0);
         return csv;
     }
 
-    @NotNull
-    public static String[] getHeaderOf(@NotNull final String CSVName) {
+    
+    public static String[] getHeaderOf( final String CSVName) {
         if (CSVName.equals("Overall")) {
             return new String[] {"number", "coordinate", "opalTime",
                 "totalMergeTime", "cgPool", "mergeTime", "UCHTime",
-                "opalNodes", "opalEdges", "mergeNodes", "mergeEdges",
-                "dependencies"};
+                "opalNodes", "opalEdges", "mergeNodes", "mergeEdges"};
 
         } else if (CSVName.equals("Generator")) {
             return new String[] {"number", "coordinate", "time",
-                "nodes", "edges", "dependencies"};
+                "nodes", "edges"};
 
         } else if (CSVName.equals("CGPool")) {
             return new String[] {"number", "coordinate", "occurrence", "isolatedRevisionTime",
@@ -153,7 +153,7 @@ public class CSVUtils {
 
         } else if (CSVName.equals("Accuracy")) {
             return new String[] {"number", "coordinate", "source", "precision", "recall",
-                "OPAL", "Merge", "intersection", "dependencies"};
+                "OPAL", "Merge", "intersection"};
 
         } else if (CSVName.equals("Log")) {
             return new String[] {"number", "coordinate", "opalLog", "mergeLog"};
@@ -161,12 +161,12 @@ public class CSVUtils {
 
         //Merge
         return new String[] {"number", "rootCoordinate", "artifact", "mergeTime", "uchTime",
-            "nodes", "edges", "dependencies"};
+            "nodes", "edges"};
     }
 
-    @NotNull
-    public static String[] getMergeContent(final int counter, @NotNull final MavenCoordinate rootCoord,
-                                           @NotNull final StatCounter.MergeTimer merge, final Long uchTime) {
+    
+    public static String[] getMergeContent(final int counter,  final MavenCoordinate rootCoord,
+                                            final StatCounter.MergeTimer merge, final Long uchTime) {
         return new String[] {
             /* number */ String.valueOf(counter),
             /* rootCoordinate */ rootCoord.getCoordinate(),
@@ -174,13 +174,12 @@ public class CSVUtils {
             /* mergeTime */ String.valueOf(merge.time),
             /* uchTime */ String.valueOf(uchTime),
             /* nodes */ String.valueOf(merge.mergeStats.nodes),
-            /* edges */ String.valueOf(merge.mergeStats.edges),
-            /* dependencies */ StatCounter.toString(merge.deps)};
+            /* edges */ String.valueOf(merge.mergeStats.edges)};
     }
 
-    @NotNull
+    
     public static List<String[]> buildDataCSVofResolvedCoords(
-        @NotNull final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData) {
+         final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData) {
         final List<String[]> dataLines = new ArrayList<>();
         dataLines.add(new String[] {"number", "coordinate", "dependencies"});
         int counter = 0;

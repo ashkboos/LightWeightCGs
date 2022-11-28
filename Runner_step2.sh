@@ -3,12 +3,15 @@
 mkdir $2
 mkdir $2/opal
 mkdir $2/wala
-java -jar runnable/LightWeightCGs-1.0-SNAPSHOT-with-dependencies.jar --analyzeOutDir $1 $2/opal opal mergeOPAL -Xmx200000m
-java -jar runnable/LightWeightCGs-1.0-SNAPSHOT-with-dependencies.jar --analyzeOutDir $1 $2/wala wala mergeWALA -Xmx200000m
-java -jar runnable/LightWeightCGs-1.0-SNAPSHOT-with-dependencies.jar --inputDemography $3 $2/inputStats.csv
+java -Xmx10000m -Xms10000m -jar runnable/LightWeightCGs-1.0-SNAPSHOT-with-dependencies.jar --analyzeOutDir $1 $2/opal opal mergeOPAL
+java -Xmx10000m -Xms10000m -jar runnable/LightWeightCGs-1.0-SNAPSHOT-with-dependencies.jar --analyzeOutDir $1 $2/wala wala mergeWALA
 
-python3 stats.py $2 > $2/stats.txt
+#java -jar runnable/LightWeightCGs-1.0-SNAPSHOT-with-dependencies.jar --inputDemography $3 $2/inputStats.csv
+#python3 stats.py $2 > $2/stats.txt
 
 #How to run => $1: call graphs folder, $2: result folder, $3: full input data file e.g.
 #bash Runner_step2.sh results/outputStats/cgs results/outputStats/overAll results/inputMvnData/highly.connected10.resolved.csv
 
+#--wholeProgram
+ #8,com.google.code.maven-play-plugin.org.playframework:play:1.3.2,com.google.code.maven-play-plugin.org.playframework:play:1.3.2;org.ow2.asm:asm-all:5.0.4;com.mchange:c3p0:0.9.5;com.mchange:mchange-commons-java:0.2.9;com.google.code.maven-play-plugin.com.mchange:c3p0-oracle-thin-extras:0.9.5;cglib:cglib:3.1;com.google.code.gson:gson:2.3.1;com.h2database:h2:1.4.185;com.ning:async-http-client:1.8.16;com.thoughtworks.xstream:xstream:1.4.7;xmlpull:xmlpull:1.1.3.1;commons-beanutils:commons-beanutils:1.8.3;commons-codec:commons-codec:1.10;commons-collections:commons-collections:3.2.1;org.apache.commons:commons-email:1.3.3;commons-fileupload:commons-fileupload:1.3.1;commons-io:commons-io:2.4;commons-lang:commons-lang:2.6;commons-logging:commons-logging:1.2;com.jamonapi:jamon:2.81;dom4j:dom4j:1.6.1;org.javassist:javassist:3.19.0-GA;javax.activation:activation:1.1.1;javax.inject:javax.inject:1;javax.mail:mail:1.4.7;jaxen:jaxen:1.1.6;joda-time:joda-time:2.8.2;junit:junit:4.12;org.hamcrest:hamcrest-core:1.3;log4j:log4j:1.2.17;mysql:mysql-connector-java:5.1.35;net.sf.ehcache:ehcache-core:2.6.11;net.sf.ezmorph:ezmorph:1.0.6;net.sf.jsr107cache:jsr107cache:1.0;net.sf.oval:oval:1.84;net.sourceforge.jregex:jregex:1.2_01;net.spy:spymemcached:2.11.7;oauth.signpost:signpost-core:1.2.1.2;org.apache.ivy:ivy:2.4.0;org.bouncycastle:bcprov-jdk15:1.45;org.codehaus.groovy:groovy-all:2.3.9;org.hibernate:hibernate-c3p0:4.2.19.Final;org.jboss.logging:jboss-logging:3.1.0.GA;org.hibernate:hibernate-entitymanager:4.2.19.Final;org.hibernate.common:hibernate-commons-annotations:4.0.2.Final;org.hibernate:hibernate-validator:4.1.0.Final;javax.validation:validation-api:1.0.0.GA;org.hibernate.javax.persistence:hibernate-jpa-2.0-api:1.0.1.Final;org.jboss.spec.javax.transaction:jboss-transaction-api_1.1_spec:1.0.1.Final;io.netty:netty:3.9.8.Final;org.slf4j:slf4j-api:1.7.10;org.slf4j:slf4j-log4j12:1.7.10;org.yaml:snakeyaml:1.15;com.google.code.maven-play-plugin.org.apache.commons:commons-javaflow:1590792-patched-play-1.3.0;com.google.code.maven-play-plugin.org.eclipse.jdt:org.eclipse.jdt.core:3.10.0.v20140604-1726;com.google.code.maven-play-plugin.org.hibernate:hibernate-core:4.2.19.Final-patched-play-1.3.2;antlr:antlr:2.7.7;com.google.code.maven-play-plugin.org.playframework:jj-imaging:1.1;com.google.code.maven-play-plugin.org.playframework:jj-simplecaptcha:1.1;com.google.code.maven-play-plugin.org.playframework:jj-textile:1.1;com.google.code.maven-play-plugin.org.playframework:jj-wikitext:1.1;com.google.code.maven-play-plugin.postgresql:postgresql:9.0-801.jdbc4-patched-play-1.2.3
+ #/Users/mehdi/Desktop/MyMac/Phd/FASTEN/Repositories/MainRepo/LightWeightCGs/results/outputStats/cgs/com.google.code.maven-play-plugin.org.playframework:play:1.3.2/wala/test

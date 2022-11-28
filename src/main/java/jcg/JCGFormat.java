@@ -21,6 +21,7 @@ package jcg;
 import eu.fasten.core.data.JavaNode;
 import eu.fasten.core.data.PartialJavaCallGraph;
 import it.unimi.dsi.fastutil.ints.IntIntPair;
+import it.unimi.dsi.fastutil.longs.LongLongPair;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -38,8 +39,8 @@ import org.json.JSONObject;
 
 public class JCGFormat {
 
-    @NotNull
-    public static JSONObject convertERCGTOJCG(@NotNull final PartialJavaCallGraph ercg) {
+
+    public static JSONObject convertERCGTOJCG(final PartialJavaCallGraph ercg) {
 
         if (ercg.isCallGraphEmpty()) {
             return new JSONObject();
@@ -47,9 +48,9 @@ public class JCGFormat {
         return getJCGJSON(groupByCallSite(getAdjacencyList(ercg)));
     }
 
-    @NotNull
+
     private static JSONObject getJCGJSON(
-        @NotNull final Map<String, Map<Map<Object, Object>, List<String>>> cgWithCallSites) {
+        final Map<String, Map<Map<Object, Object>, List<String>>> cgWithCallSites) {
 
         final var result = new JSONObject();
         final var reachableMethods = new JSONArray();
@@ -64,7 +65,8 @@ public class JCGFormat {
                     final var callSiteJson = new JSONObject();
                     final var cs = (HashMap<String, Object>) callSite.getValue();
                     final var pc = (Integer) callSite.getKey();
-                    callSiteJson.put("declaredTarget", getMethodJSON((String) cs.get("receiver"), targetsOfACallSite.getValue().get(0)));
+                    callSiteJson.put("declaredTarget", getMethodJSON((String) cs.get("receiver"),
+                        targetsOfACallSite.getValue().get(0)));
                     callSiteJson.put("line", cs.get("line"));
                     callSiteJson.put("pc", pc);
                     final var targets = new JSONArray();
@@ -84,7 +86,7 @@ public class JCGFormat {
 
     }
 
-    private static <E> void putToJsonArray(@NotNull final JSONArray array, final String key,
+    private static <E> void putToJsonArray(final JSONArray array, final String key,
                                            final E content) {
         array.put(new JSONObject() {
             {
@@ -93,13 +95,14 @@ public class JCGFormat {
         });
     }
 
-    @NotNull
+
     private static JSONObject getMethodJSON(final String type, final String uri) {
-        return getMethodJSON(type + "." + StringUtils.substringAfter(StringUtils.substringBefore(uri,"("),
-            "."));
+        return getMethodJSON(
+            type + "." + StringUtils.substringAfter(StringUtils.substringBefore(uri, "("),
+                "."));
     }
 
-    @NotNull
+
     private static JSONObject getMethodJSON(final String uri) {
 
         final var method = decodeMethod(uri);
@@ -123,15 +126,15 @@ public class JCGFormat {
         result.put("name", name);
         result.put("parameterTypes", params);
         result.put("returnType", toJVMType(dereletivize(uri,
-                StringUtils.substringAfterLast(method, ")"))));
+            StringUtils.substringAfterLast(method, ")"))));
         result.put("declaringClass", toJVMType(uri + "/" + method.split("[.]")[0]));
 
         return result;
 
     }
 
-    @NotNull
-    private static String dereletivize(String type, @NotNull String param) {
+
+    private static String dereletivize(String type, String param) {
         return !param.contains("/") && !param.contains(".") ? type + "/" + param : param;
     }
 
@@ -144,7 +147,7 @@ public class JCGFormat {
     }
 
 
-    private static String toJVMType(@NotNull final String type) {
+    private static String toJVMType(final String type) {
 
         String result = type.replace(".", "/"), brakets = "";
 
@@ -172,22 +175,22 @@ public class JCGFormat {
     private static String convertJavaTypes(final String type) {
 
         final var WraperTypes = Map.of(
-                "java/lang/ByteType", "B",
-                "java/lang/ShortType", "S",
-                "java/lang/IntegerType", "I",
-                "java/lang/LongType", "J",
-                "java/lang/FloatType", "F",
-                "java/lang/DoubleType", "D",
-                "java/lang/BooleanType", "Z",
-                "java/lang/CharType", "C",
-                "java/lang/VoidType", "V");
+            "java/lang/ByteType", "B",
+            "java/lang/ShortType", "S",
+            "java/lang/IntegerType", "I",
+            "java/lang/LongType", "J",
+            "java/lang/FloatType", "F",
+            "java/lang/DoubleType", "D",
+            "java/lang/BooleanType", "Z",
+            "java/lang/CharType", "C",
+            "java/lang/VoidType", "V");
 
         return WraperTypes.getOrDefault(type, type);
     }
 
-    @NotNull
+
     private static Map<String, Map<Map<Object, Object>, List<String>>> groupByCallSite(
-        @NotNull final Map<String, List<Pair<String, Map<Object, Object>>>> cg) {
+        final Map<String, List<Pair<String, Map<Object, Object>>>> cg) {
 
         final Map<String, Map<Map<Object, Object>, List<String>>> result = new HashMap<>();
 
@@ -196,8 +199,8 @@ public class JCGFormat {
             for (final var target : cg.get(source)) {
                 final var line = target.getRight();
                 callSites.put(line,
-                        Stream.concat(callSites.getOrDefault(line, new ArrayList<>()).stream(),
-                                Stream.of(target.getLeft())).collect(Collectors.toList()));
+                    Stream.concat(callSites.getOrDefault(line, new ArrayList<>()).stream(),
+                        Stream.of(target.getLeft())).collect(Collectors.toList()));
             }
             result.put(source, callSites);
         }
@@ -205,14 +208,14 @@ public class JCGFormat {
         return result;
     }
 
-    @NotNull
-    private static String getSignature(@NotNull final String rawEntity) {
+
+    private static String getSignature(final String rawEntity) {
         return rawEntity.substring(rawEntity.indexOf(".") + 1);
     }
 
-    @NotNull
+
     private static Map<String, List<Pair<String, Map<Object, Object>>>> getAdjacencyList(
-        @NotNull final PartialJavaCallGraph ercg) {
+        final PartialJavaCallGraph ercg) {
 
         final Map<String, List<Pair<String, Map<Object, Object>>>> result = new HashMap<>();
 
@@ -224,15 +227,15 @@ public class JCGFormat {
         return result;
     }
 
-    private static void putCall(@NotNull final Map<String, List<Pair<String, Map<Object, Object>>>> result,
-                                @NotNull final Map<Integer, JavaNode> methods,
-                                @NotNull final Map.Entry<IntIntPair, Map<Object, Object>> call) {
+    private static void putCall(final Map<String, List<Pair<String, Map<Object, Object>>>> result,
+                                final Map<Long, JavaNode> methods,
+                                final Map.Entry<LongLongPair, Map<Object, Object>> call) {
 
-        final var source = methods.get(call.getKey().keyInt()).getSignature();
+        final var source = methods.get(call.getKey().leftLong()).getSignature();
         final var targets = result.getOrDefault(source, new ArrayList<>());
 
-        targets.add(MutablePair.of(methods.get(call.getKey().valueInt()).getSignature(),
-                call.getValue()));
+        targets.add(MutablePair.of(methods.get(call.getKey().secondLong()).getSignature(),
+            call.getValue()));
 
         result.put(source, targets);
     }

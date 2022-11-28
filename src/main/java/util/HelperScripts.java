@@ -18,12 +18,17 @@
 
 package util;
 
+import static eu.fasten.analyzer.javacgwala.data.callgraph.Algorithm.CHA;
 import static util.CSVUtils.buildDataCSVofResolvedCoords;
+import static util.FilesUtils.JAVA_8_COORD;
 
+import eu.fasten.core.data.CallPreservationStrategy;
+import eu.fasten.core.data.JSONUtils;
 import eu.fasten.core.data.opal.MavenCoordinate;
-import evaluation.InputDemography;
+import eu.fasten.core.merge.CallGraphUtils;
 import evaluation.LegacyCGEvaluator;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,7 +36,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -79,7 +83,11 @@ public class HelperScripts {
                 LegacyCGEvaluator.measureAll(CSVUtils.readResolvedCSV(args[1]), args[2],
                     Integer.parseInt(args[3]));
                 break;
-
+            // "src/main/resources/wala-rt-jar.json"
+            // "src/main/resources/opal-rt-jar.json"
+            case "--generateRTJAR":
+                generateCGForGeneratorAndStore(args[1], args[2]);
+                break;
         }
 
     }
@@ -222,4 +230,19 @@ public class HelperScripts {
         logger.info("After one dep removal data size is: {}", result.size());
         return result;
     }
+
+    private static void generateCGForGeneratorAndStore(final String generator, final String path) {
+
+        final var pcg = CGUtils.generatePCG(new File[] {new FilesUtils().getRTJar()},
+            JAVA_8_COORD, CHA.label, CallPreservationStrategy.ONLY_STATIC_CALLSITES, generator);
+
+        final var jsonCG = JSONUtils.toJSONString(pcg);
+
+        try {
+            CallGraphUtils.writeToFile(path, jsonCG);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 }

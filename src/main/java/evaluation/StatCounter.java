@@ -26,10 +26,14 @@ import java.io.File;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -42,9 +46,7 @@ public class StatCounter {
     private static final Logger logger = LoggerFactory.getLogger(StatCounter.class);
 
 
-    private final Map<MavenCoordinate, GeneratorStats> opalStats;
-
-    private final Map<MavenCoordinate, GeneratorStats> walaStats;
+    public final Map<MavenCoordinate, GeneratorStats> generatorStats;
 
     private final Map<MavenCoordinate, CGPoolStats> cgPoolStats;
 
@@ -52,7 +54,7 @@ public class StatCounter {
 
     private final Map<MavenCoordinate, Long> UCHTime;
 
-    private final Map<MavenCoordinate, List<SourceStats>> accuracy;
+    private final Map<MavenCoordinate, Set<SourceStats>> accuracy;
 
     private final Map<String, Pair<String, String>> logs;
 
@@ -60,20 +62,19 @@ public class StatCounter {
     public StatCounter() {
         UCHTime = new ConcurrentHashMap<>();
         cgPoolStats = new ConcurrentHashMap<>();
-        opalStats = new ConcurrentHashMap<>();
-        walaStats = new ConcurrentHashMap<>();
+        generatorStats = new ConcurrentHashMap<>();
         mergeStats = new ConcurrentHashMap<>();
         accuracy = new ConcurrentHashMap<>();
         logs = new ConcurrentHashMap<>();
     }
 
-    public synchronized void addAccuracy(final MavenCoordinate toMerge,
-                                         final List<SourceStats> acc) {
+    public void addAccuracy(final MavenCoordinate toMerge,
+                            final Set<SourceStats> acc) {
         this.accuracy.put(toMerge, acc);
     }
 
-    public synchronized void addLog(final File[] opalLog, final File[] mergeLog,
-                                    final String coord) {
+    public void addLog(final File[] opalLog, final File[] mergeLog,
+                       final String coord) {
         String opalLogString = "", mergeLoString = "";
 
         if (opalLog != null) {
@@ -83,6 +84,10 @@ public class StatCounter {
             mergeLoString = FilesUtils.readFromLast(mergeLog[0], 20);
         }
         this.logs.put(coord, ImmutablePair.of(opalLogString, mergeLoString));
+    }
+
+    public void addMerge(MavenCoordinate rootCoord, long mergeTime, GraphStats graphStats) {
+        addMerge(rootCoord, Collections.emptyList(), mergeTime, graphStats);
     }
 
     public static class SourceStats {
@@ -102,6 +107,29 @@ public class StatCounter {
             this.OPAL = OPAL;
             this.merge = merge;
             this.intersect = intersect;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            SourceStats that = (SourceStats) o;
+
+            return new EqualsBuilder().append(precision, that.precision)
+                .append(recall, that.recall).append(OPAL, that.OPAL).append(merge, that.merge)
+                .append(intersect, that.intersect).append(source, that.source).isEquals();
+        }
+
+        @Override
+        public int hashCode() {
+            return new HashCodeBuilder(17, 37).append(source).append(precision).append(recall)
+                .append(OPAL).append(merge).append(intersect).toHashCode();
         }
     }
 
@@ -156,7 +184,6 @@ public class StatCounter {
             this.edges = edges;
         }
 
-
         private int countMethods(final Collection<JavaType> types) {
             int result = 0;
             for (final var type : types) {
@@ -197,59 +224,50 @@ public class StatCounter {
             this.cgPoolGraphStats = cgPoolGraphStats;
         }
 
-        public synchronized void addOccurrence() {
+        public void addOccurrence() {
             occurrence++;
         }
     }
 
-    public synchronized void addNewCGtoPool(final MavenCoordinate coord, final long time,
-                                            final GraphStats rcg) {
+    public void addNewCGtoPool(final MavenCoordinate coord, final long time,
+                               final GraphStats rcg) {
 
         cgPoolStats.put(coord,
             new CGPoolStats(time, 1, rcg)
         );
     }
 
-    public synchronized void addExistingToCGPool(final MavenCoordinate coord) {
+    public void addExistingToCGPool(final MavenCoordinate coord) {
         cgPoolStats.get(coord).addOccurrence();
     }
 
-    public synchronized void addOPAL(final MavenCoordinate coord, final GeneratorStats os) {
-        addGenerator(coord, os, opalStats);
-    }
-
-    public synchronized void addOPAL(final MavenCoordinate coord, final long time,
-                                     final DirectedGraph dg) {
-        this.addOPAL(coord, new GeneratorStats(time, new GraphStats(dg)));
-    }
-
-    private void addGenerator(final MavenCoordinate coord, final GeneratorStats os,
-                              final Map<MavenCoordinate, GeneratorStats> generator) {
-        if (generator.containsKey(coord)) {
+    public void addGenerator(final MavenCoordinate coord, final GeneratorStats os) {
+        if (generatorStats.containsKey(coord)) {
             logger.warn("The coordinate was already generated {}", coord);
         } else {
-            generator.put(coord, os);
+            generatorStats.put(coord, os);
         }
     }
 
-    public void addWala(final MavenCoordinate coord, final long time, final DirectedGraph dg) {
-        this.addWala(coord, new GeneratorStats(time, new GraphStats(dg)));
+    public void addGenerator(final MavenCoordinate coord, final long time,
+                             final PartialJavaCallGraph dg) {
+        this.addGenerator(coord, new GeneratorStats(time, new GraphStats(dg)));
     }
 
-    public synchronized void addWala(final MavenCoordinate coord, final GeneratorStats os) {
-        addGenerator(coord, os, walaStats);
+    public void addGenerator(final MavenCoordinate coord, final long time,
+                             final DirectedGraph dg) {
+        this.addGenerator(coord, new GeneratorStats(time, new GraphStats(dg)));
     }
 
-    public synchronized void addUCH(final MavenCoordinate coord, final Long time) {
+    public void addUCH(final MavenCoordinate coord, final Long time) {
         UCHTime.put(coord, time);
     }
 
-    public synchronized void addMerge(final MavenCoordinate rootCoord,
-                                      final MavenCoordinate artifact,
-                                      final List<MavenCoordinate> deps,
-                                      final long time, final GraphStats cgStats) {
+    public void addMerge(final MavenCoordinate rootCoord,
+                         final List<MavenCoordinate> deps,
+                         final long time, final GraphStats cgStats) {
         final var merge = mergeStats.getOrDefault(rootCoord, new ArrayList<>());
-        merge.add(new MergeTimer(artifact, deps, time, cgStats));
+        merge.add(new MergeTimer(rootCoord, deps, time, cgStats));
         mergeStats.put(rootCoord, merge);
     }
 
@@ -259,17 +277,15 @@ public class StatCounter {
         CSVUtils.writeToCSV(buildMergeCSV(), resultPath + "/Merge.csv");
     }
 
-    public void concludeGenerator(final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
-                                  final String resultPath) {
+    public void concludeGenerator(final String resultPath) {
 
         CSVUtils.writeToCSV(
-            buildGeneratorCSV(resolvedData, opalStats), resultPath + "/generator.csv");
+            buildGeneratorCSV(generatorStats), resultPath + "/result.csv");
     }
 
     public void concludeLogs(final String outPath) {
         CSVUtils.writeToCSV(buildLogCsv(), outPath + "/Logs.csv");
     }
-
 
     private List<String[]> buildLogCsv() {
         final List<String[]> dataLines = new ArrayList<>();
@@ -296,12 +312,11 @@ public class StatCounter {
                             final String resultPath) {
 
         CSVUtils.writeToCSV(buildOverallCsv(resolvedData), resultPath + "/Overall.csv");
-        CSVUtils.writeToCSV(buildAccuracyCsv(resolvedData), resultPath + "/accuracy.csv");
+        CSVUtils.writeToCSV(buildAccuracyCsv(), resultPath + "/accuracy.csv");
     }
 
 
-    private List<String[]> buildAccuracyCsv(
-        final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData) {
+    private List<String[]> buildAccuracyCsv() {
         final List<String[]> dataLines = new ArrayList<>();
         dataLines.add(CSVUtils.getHeaderOf("Accuracy"));
 
@@ -309,16 +324,15 @@ public class StatCounter {
         for (final var coordAcc : this.accuracy.entrySet()) {
             final var coord = coordAcc.getKey();
             final var accValue = coordAcc.getValue();
-            dataLines.addAll(getContentOfAcc(resolvedData, counter, coord, accValue));
+            dataLines.addAll(getContentOfAcc(counter, coord, accValue));
         }
         return dataLines;
     }
 
 
-    private List<String[]> getContentOfAcc(
-        final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData, int counter,
+    private List<String[]> getContentOfAcc(int counter,
         final MavenCoordinate coord,
-        final List<SourceStats> sourceStats) {
+        final Set<SourceStats> sourceStats) {
         List<String[]> result = new ArrayList<>();
         for (final var sourceStat : sourceStats) {
             result.add(new String[] {
@@ -330,7 +344,6 @@ public class StatCounter {
                 /* emptyOPAL */ String.valueOf(sourceStat.OPAL),
                 /* emptyMerge */ String.valueOf(sourceStat.merge),
                 /* emptyBoth */ String.valueOf(sourceStat.intersect),
-                /* dependencies */ toString(resolvedData.get(coord))
             });
             counter++;
         }
@@ -339,7 +352,6 @@ public class StatCounter {
 
 
     private List<String[]> buildGeneratorCSV(
-        final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
         final Map<MavenCoordinate, GeneratorStats> generatorStats) {
 
         final List<String[]> dataLines = new ArrayList<>();
@@ -349,7 +361,7 @@ public class StatCounter {
         for (var coordinateStats : generatorStats.entrySet()) {
             var stats = coordinateStats.getValue();
             dataLines.add(
-                getContentOfGenerator(resolvedData, counter, coordinateStats.getKey(), stats));
+                getContentOfGenerator(counter, coordinateStats.getKey(), stats));
             counter++;
         }
         return dataLines;
@@ -357,7 +369,6 @@ public class StatCounter {
 
 
     private String[] getContentOfGenerator(
-        final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
         final int counter, MavenCoordinate coord,
         final GeneratorStats generatorStats) {
         return new String[] {
@@ -366,7 +377,6 @@ public class StatCounter {
             /* time */ String.valueOf(generatorStats.time),
             /* nodes */ String.valueOf(generatorStats.graphStats.nodes),
             /* edges */ String.valueOf(generatorStats.graphStats.edges),
-            /* dependencies */ toString(resolvedData.get(coord))
         };
     }
 
@@ -412,7 +422,8 @@ public class StatCounter {
         for (final var coorDeps : depTree.entrySet()) {
             final var coord = coorDeps.getKey();
             dataLines.add(
-                getOverallContent(depTree, counter, coord, opalStats.getOrDefault(coord, null)));
+                getOverallContent(depTree, counter, coord,
+                    generatorStats.getOrDefault(coord, null)));
             counter++;
         }
         return dataLines;
@@ -447,13 +458,12 @@ public class StatCounter {
             /* cgPool */ String.valueOf(mergePool.getRight()),
             /* mergeTime */ String.valueOf(mergePool.getLeft()),
             /* UCHTime */ String.valueOf(UCHTime.get(coord)),
-            /* opalNodes */ generatorStats == null ? "-1" :
+            /* opalNodes */ generatorStats == null ? "0" :
             String.valueOf(generatorStats.graphStats.nodes),
-            /* opalEdges */ generatorStats == null ? "-1" :
+            /* opalEdges */ generatorStats == null ? "0" :
             String.valueOf(generatorStats.graphStats.edges),
             /* mergeNodes */ calculateNumberOf("nodes", coord),
-            /* mergeEdges */ calculateNumberOf("edges", coord),
-            /* dependencies */ toString(depTree.get(coord))};
+            /* mergeEdges */ calculateNumberOf("edges", coord)};
     }
 
 
@@ -470,7 +480,7 @@ public class StatCounter {
                 }
             }
         } else {
-            return "-1";
+            return "0";
         }
 
         return String.valueOf(allNodes);
@@ -492,13 +502,13 @@ public class StatCounter {
 
         try {
             for (final var depCoord : resolvedData.get(coord)) {
-                if (cgPoolStats.get(depCoord) != null) {
-                    if (cgPoolStats.get(depCoord).time != null) {
+                if (this.cgPoolStats.get(depCoord) != null) {
+                    if (this.cgPoolStats.get(depCoord).time != null) {
                         cgPoolTotalTime = cgPoolTotalTime + cgPoolStats.get(depCoord).time;
                     }
                 }
             }
-            for (final var merge : mergeStats.get(coord)) {
+            for (final var merge : this.mergeStats.getOrDefault(coord, Collections.emptyList())) {
                 mergeTotalTime = mergeTotalTime + merge.time;
             }
         } catch (Exception e) {

@@ -35,7 +35,8 @@ public class InputDataRow {
 
     @NotNull
     public static InputDataRow initEmptyInputDataRow() {
-        return new InputDataRow(MavenCoordinate.fromString("", ""), new ArrayList<>());
+        return new InputDataRow(MavenCoordinate.fromString("empty:empty:empty", "jar"),
+            new ArrayList<>());
     }
 
     public boolean isEmpty(){

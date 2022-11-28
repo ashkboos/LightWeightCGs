@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import me.tongfei.progressbar.ProgressBar;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import util.HelperScripts;
@@ -24,7 +23,7 @@ public class LegacyCGEvaluator {
     private static final Logger logger = LoggerFactory.getLogger(LegacyCGEvaluator.class);
 
     public static void measureAll(
-        @NotNull final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
+        final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
         final String outPath,
         final int threshold) {
 
@@ -41,15 +40,15 @@ public class LegacyCGEvaluator {
             runOPALandMerge(resolvedData, statCounter);
 
             statCounter.concludeMerge(outPath);
-            statCounter.concludeGenerator(resolvedData, outPath);
+            statCounter.concludeGenerator(outPath);
             statCounter.concludeAll(resolvedData, outPath);
             logger.info("Wrote results of evaluation into file successfully!");
         }
     }
 
     private static void runOPALandMerge(
-        @NotNull final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
-        @NotNull final StatCounter statCounter) {
+        final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
+        final StatCounter statCounter) {
         final Map<MavenCoordinate, Set<MavenCoordinate>> remainedDependents =
             getDependents(resolvedData);
         final Map<MavenCoordinate, PartialJavaCallGraph> cgPool = new HashMap<>();
@@ -59,7 +58,8 @@ public class LegacyCGEvaluator {
         for (final var row : resolvedData.entrySet()) {
             final var toMerge = row.getKey();
             final ResultCG merge =
-                CGEvaluator.createCGPoolAndMergeDepSet(resolvedData.get(toMerge), statCounter, cgPool,
+                new MergeEvaluator(1, 2, false).createCGPoolAndMergeDepSet(resolvedData.get(toMerge),
+                    statCounter, cgPool,
                     Constants.opalGenerator);
             pb.step();
             for (final var dep : resolvedData.get(toMerge)) {
@@ -71,7 +71,8 @@ public class LegacyCGEvaluator {
                     }
                 }
             }
-            final ResultCG opal = CGEvaluator.generateForOPALAndMeasureTime(statCounter, row.getValue());
+            final ResultCG opal = new GeneratorEvaluator(1, 2, false).generateAndCatch(statCounter,
+                row.getValue(), Constants.opalGenerator);
             if (opal != null) {
                 statCounter.addAccuracy(toMerge,
                     CGEvaluator.calcPrecisionRecall(groupBySource(
@@ -83,9 +84,9 @@ public class LegacyCGEvaluator {
 
     }
 
-    @NotNull
+
     private static Map<MavenCoordinate, Set<MavenCoordinate>> getDependents(
-        @NotNull final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData) {
+        final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData) {
         final Map<MavenCoordinate, Set<MavenCoordinate>> result = new HashMap<>();
         for (final var entry : resolvedData.entrySet()) {
             for (final var dep : entry.getValue()) {
@@ -97,7 +98,7 @@ public class LegacyCGEvaluator {
         return result;
     }
 
-    private static ResultCG toDirectedCGAndUris( final RevisionCallGraph oCG) {
+    private static ResultCG toDirectedCGAndUris(final RevisionCallGraph oCG) {
         final var result = new ResultCG();
         for (final var intInt : oCG.getGraph().getInternalCalls()) {
             final var source = (long) intInt.get(0);

@@ -20,8 +20,7 @@ import util.FilesUtils;
 
 public class InputDemography {
 
-    @NotNull
-    static List<String[]> buildCSV(@NotNull final Map<String, List<Integer>> result) {
+    static List<String[]> buildCSV(final Map<String, List<Integer>> result) {
         final List<String[]> dataLines = new ArrayList<>();
         dataLines.add(new String[] {"number", "coordinate", "depNum", "numFiles",
             "numFilesWithDeps"});
@@ -39,9 +38,9 @@ public class InputDemography {
         return dataLines;
     }
 
-    @NotNull
+
     public static Map<MavenCoordinate, List<MavenCoordinate>> readResolvedDataCSV(
-        @NotNull final String inputPath) throws IOException {
+        final String inputPath) throws IOException {
 
         Map<MavenCoordinate, List<MavenCoordinate>> result = new HashMap<>();
 
@@ -56,8 +55,8 @@ public class InputDemography {
         return result;
     }
 
-    @NotNull
-    private static List<MavenCoordinate> getCoordsList(@NotNull final String coords) {
+
+    private static List<MavenCoordinate> getCoordsList(final String coords) {
         List<MavenCoordinate> result = new ArrayList<>();
 
         var coordinates = coords.split(";");
@@ -67,7 +66,7 @@ public class InputDemography {
         return result;
     }
 
-    public static void inputDemography(@NotNull final String inputPath, @NotNull final String outputPath) {
+    public static void inputDemography(final String inputPath, final String outputPath) {
         final var data = CSVUtils.readResolvedCSV(inputPath);
         Map<String, List<Integer>> result = new HashMap<>();
         int counter = 0;

@@ -19,14 +19,13 @@
 package jcg;
 
 import static eu.fasten.core.data.CallPreservationStrategy.ONLY_STATIC_CALLSITES;
-import static evaluation.CGEvaluator.getDepsOnly;
+import static util.InputDataUtils.getDepsOnly;
 
 import data.ResultCG;
 import eu.fasten.analyzer.javacgopal.data.CGAlgorithm;
 import eu.fasten.analyzer.javacgopal.data.OPALCallGraphConstructor;
 import eu.fasten.analyzer.javacgopal.data.OPALPartialCallGraphConstructor;
 import eu.fasten.core.data.Constants;
-import eu.fasten.core.data.FastenURI;
 import eu.fasten.core.data.PartialJavaCallGraph;
 import eu.fasten.core.data.opal.MavenArtifactDownloader;
 import eu.fasten.core.data.opal.MavenCoordinate;
@@ -36,17 +35,18 @@ import eu.fasten.core.maven.utils.MavenUtilities;
 import eu.fasten.core.merge.CGMerger;
 import evaluation.CGEvaluator;
 import it.unimi.dsi.fastutil.Pair;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectObjectImmutablePair;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import util.CSVUtils;
@@ -76,28 +76,31 @@ public class StitchingEdgeTest {
 
     }
 
-    @NotNull
-    public static Map<String, List<Pair<String, String>>> convertOpalAndMergeToNodePairs(
-        @NotNull final ResultCG merge, @NotNull final ResultCG opal) {
-        final var mergePairs = convertToNodePairs(merge);
-        final var opalPairs = convertToNodePairs(opal);
 
-        return Map.of("merge", mergePairs, "opal", opalPairs);
-    }
-
-    @NotNull
-    public static List<Pair<String, String>> convertToNodePairs(@NotNull final ResultCG cg) {
-        List<Pair<String, String>> result = new ArrayList<>();
-        for (final var edge : cg.dg.edgeSet()) {
-            final var firstMethod = FastenURI.create(cg.uris.get(edge.firstLong())).getEntity();
-            final var secondMethod = FastenURI.create(cg.uris.get(edge.secondLong())).getEntity();
-            result.add(ObjectObjectImmutablePair.of(firstMethod, secondMethod));
-        }
+    public static Map<String, Set<Pair<String, String>>> convertOpalAndMergeToNodePairs(
+        final ResultCG merge, final ResultCG opal) {
+        final var result = new Object2ObjectOpenHashMap<String, Set<Pair<String, String>>>();
+        result.put("merge", convertToNodePairs(merge));
+        result.put("opal", convertToNodePairs(opal));
         return result;
     }
 
-    @NotNull
-    static List<String[]> buildOverallCsv(@NotNull final Map<String, Map<String, List<String>>> edges) {
+
+    public static Set<Pair<String, String>> convertToNodePairs(final ResultCG cg) {
+        Set<Pair<String, String>> result = ConcurrentHashMap.newKeySet();
+        cg.dg.edgeSet().parallelStream().forEach(edge -> {
+            final var firstMethod = cg.uris.get(edge.firstLong());
+            final var secondMethod = cg.uris.get(edge.secondLong());
+            if (firstMethod.contains("scala") || secondMethod.contains("scala")) {
+                return;
+            }
+            result.add(ObjectObjectImmutablePair.of(firstMethod, secondMethod));
+        });
+        return result;
+    }
+
+
+    static List<String[]> buildOverallCsv(final Map<String, Map<String, Set<String>>> edges) {
 
         final List<String[]> dataLines = new ArrayList<>();
         dataLines.add(getHeader());
@@ -106,9 +109,9 @@ public class StitchingEdgeTest {
 
     }
 
-    @NotNull
+
     private static List<String[]> getScopeEdges(
-        @NotNull final Map<String, Map<String, List<String>>> edges) {
+        final Map<String, Map<String, Set<String>>> edges) {
         final List<String[]> result = new ArrayList<>();
 
         final var opal = edges.get("opal");
@@ -122,8 +125,8 @@ public class StitchingEdgeTest {
 
             result.add(getContent(counter,
                 source,
-                opal.getOrDefault(source, new ArrayList<>()),
-                merge.getOrDefault(source, new ArrayList<>())));
+                opal.getOrDefault(source, new HashSet<>()),
+                merge.getOrDefault(source, new HashSet<>())));
             counter++;
 
         }
@@ -131,11 +134,11 @@ public class StitchingEdgeTest {
         return result;
     }
 
-    @NotNull
+
     private static String[] getContent(int counter,
                                        final String source,
-                                       @NotNull final List<String> opal,
-                                       @NotNull final List<String> merge) {
+                                       final Set<String> opal,
+                                       final Set<String> merge) {
 
         return new String[] {
             /* num */ String.valueOf(counter),
@@ -146,7 +149,7 @@ public class StitchingEdgeTest {
             /* count */ String.valueOf(merge.size())};
     }
 
-    @NotNull
+
     private static String[] getHeader() {
         return new String[] {
             "num", "source", "opal",
@@ -154,33 +157,33 @@ public class StitchingEdgeTest {
             "count"};
     }
 
-    @NotNull
-    public static Map<String, Map<String, List<String>>> groupBySource(
-        @NotNull final Map<String, List<Pair<String, String>>> edges) {
 
-        final Map<String, Map<String, List<String>>> result = new HashMap<>();
+    public static Map<String, Map<String, Set<String>>> groupBySource(
+        final Map<String, Set<Pair<String, String>>> edges) {
+
+        final Map<String, Map<String, Set<String>>> result = new Object2ObjectOpenHashMap<>();
 
         for (final var generator : edges.entrySet()) {
-            final Map<String, List<String>> edgesOfSource = new HashMap<>();
+            final Map<String, Set<String>> edgesOfSource = new ConcurrentHashMap<>();
 
-            for (Pair<String, String> edge : generator.getValue()) {
-                edgesOfSource.computeIfAbsent(edge.left(), s -> new ArrayList<>())
+            generator.getValue().parallelStream().forEach(edge -> {
+                edgesOfSource.computeIfAbsent(edge.left(), s -> ConcurrentHashMap.newKeySet())
                     .add(edge.right());
-            }
+            });
             result.put(generator.getKey(), edgesOfSource);
         }
         return result;
     }
 
-    @NotNull
-    private static ResultCG merge(@NotNull final List<PartialJavaCallGraph> deps) {
+
+    private static ResultCG merge(final List<PartialJavaCallGraph> deps) {
 
         final var cgMerger = new CGMerger(deps);
         return new ResultCG(cgMerger.mergeAllDeps(), cgMerger.getAllUris());
     }
 
-    @NotNull
-    private static List<PartialJavaCallGraph> getDepsCG(@NotNull final Map.Entry<MavenCoordinate,
+
+    private static List<PartialJavaCallGraph> getDepsCG(final Map.Entry<MavenCoordinate,
         List<MavenCoordinate>> row)
         throws OPALException, MissingArtifactException {
         final List<PartialJavaCallGraph> result = new ArrayList<>();
@@ -209,21 +212,22 @@ public class StitchingEdgeTest {
     }
 
 
-    @NotNull
-    private static ResultCG getOpalCG(@NotNull final Map.Entry<MavenCoordinate,
+    private static ResultCG getOpalCG(final Map.Entry<MavenCoordinate,
         List<MavenCoordinate>> row)
         throws IOException, OPALException {
 
-        final var tempDir = FilesUtils.downloadToDir(row.getValue());
+        final var filesUtils = new FilesUtils();
+        final var tempDir = filesUtils.downloadToDir(row.getValue());
         System.out.println("################# \n downloaded jars to:" + tempDir);
 
         final var depFiles =
-            FilesUtils.downloadToDir(getDepsOnly(row.getValue()));
-        final var rootFile = FilesUtils.download(row.getValue().get(0));
+            filesUtils.downloadToDir(getDepsOnly(row.getValue()));
+        final var rootFile = filesUtils.download(row.getValue().get(0));
         System.out.printf("\n##################### \n DepSet %s downloaded to %s dep files %s .." +
             ".", row.getValue(), rootFile.getAbsolutePath(), Arrays.toString(depFiles));
 
-        final var opalCG = new OPALCallGraphConstructor().construct(new File[] {rootFile}, tempDir, CGAlgorithm.CHA);
+        final var opalCG = new OPALCallGraphConstructor().construct(new File[] {rootFile}, tempDir,
+            CGAlgorithm.CHA);
 
         final var partialCallGraph = new OPALPartialCallGraphConstructor().construct(opalCG,
             ONLY_STATIC_CALLSITES);

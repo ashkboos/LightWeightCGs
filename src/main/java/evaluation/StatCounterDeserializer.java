@@ -1,6 +1,5 @@
 package evaluation;
 
-import data.InputDataRow;
 import eu.fasten.core.data.opal.MavenCoordinate;
 import java.io.File;
 import java.util.List;
@@ -10,79 +9,69 @@ import util.FilesUtils;
 
 public class StatCounterDeserializer {
 
-    static InputDataRow updateFromFile(final File opalDir,
-                                       final File mergeDir,
-                                       final StatCounter statCounter) {
+    public static final int DEFAULT_FAILED = 0;
 
-        InputDataRow result = InputDataRow.initEmptyInputDataRow();
-        final var resultOpal = CSVUtils.readCSV(opalDir.getAbsolutePath() + "/resultOpal.csv");
-        if (!resultOpal.isEmpty()) {
-            result = addGeneratorToStatCounter(resultOpal.get(0), statCounter);
-        }
+    static void updateFromFile(MavenCoordinate rootCoord,
+                               final File opalDir,
+                               final File mergeDir,
+                               final StatCounter statCounter) {
 
-        InputDataRow merge = InputDataRow.initEmptyInputDataRow();
+        final var resultOpal = CSVUtils.readCSV(opalDir.getAbsolutePath() + "/result.csv");
+        addGeneratorToStatCounter(rootCoord, resultOpal, statCounter);
+
         final var resultMerge = CSVUtils.readCSV(mergeDir.getAbsolutePath() + "/Merge.csv");
-        if (!resultMerge.isEmpty()) {
-            merge = addMergeToStatCounter(resultMerge.get(0), statCounter);
-        }
+        addMergeToStatCounter(rootCoord, resultMerge, statCounter);
 
         final var cgPool = CSVUtils.readCSV(mergeDir.getAbsolutePath() + "/CGPool.csv");
-        if (!cgPool.isEmpty()) {
-            addCGPoolToStatCounter(cgPool, statCounter);
-        }
+        addCGPoolToStatCounter(rootCoord, cgPool, statCounter);
 
         statCounter.addLog(FilesUtils.getLogs(opalDir), FilesUtils.getLogs(mergeDir),
             opalDir.getPath());
 
-        if (result.isEmpty()) {
-            result = merge;
-        }
-
-        return result;
     }
 
 
-    private static InputDataRow addGeneratorToStatCounter(
-        final Map<String, String> resultOpal,
+    private static void addGeneratorToStatCounter(
+        MavenCoordinate root, final List<Map<String, String>> resultOpal,
         StatCounter statCounter) {
-        var result = InputDataRow.initEmptyInputDataRow();
-        result.root = MavenCoordinate.fromString(resultOpal.get("coordinate"), "jar");
-        final var opalStats = new StatCounter.GeneratorStats(Long.parseLong(resultOpal.get("time")),
-            new StatCounter.GraphStats(Integer.parseInt(resultOpal.get("nodes")),
-                Integer.parseInt(resultOpal.get("edges"))));
-
-        statCounter.addOPAL(result.root, opalStats);
-        for (final var dep : resultOpal.get("dependencies").split(";")) {
-            result.addToDepSet(dep);
+        final StatCounter.GeneratorStats opalStats;
+        if (resultOpal.isEmpty()) {
+            opalStats = new StatCounter.GeneratorStats((long) DEFAULT_FAILED,
+                new StatCounter.GraphStats(DEFAULT_FAILED, DEFAULT_FAILED));
+        } else {
+            final var row = resultOpal.get(0);
+            opalStats = new StatCounter.GeneratorStats(Long.parseLong(row.get("time")),
+                new StatCounter.GraphStats(Integer.parseInt(row.get("nodes")),
+                    Integer.parseInt(row.get("edges"))));
         }
-        return result;
+        statCounter.addGenerator(root, opalStats);
     }
 
 
-    private static InputDataRow addMergeToStatCounter(
-        final Map<String, String> resultMerge,
+    private static void addMergeToStatCounter(
+        MavenCoordinate rootCoord, final List<Map<String, String>> resultMerge,
         StatCounter statCounter) {
-
-        InputDataRow inputDataRow = InputDataRow.initEmptyInputDataRow();
-        for (final var dep : resultMerge.get("dependencies").split(";")) {
-            inputDataRow.addToDepSet(dep);
+        if (resultMerge.isEmpty()) {
+            statCounter.addMerge(rootCoord, DEFAULT_FAILED,
+                new StatCounter.GraphStats(DEFAULT_FAILED, DEFAULT_FAILED));
+            statCounter.addUCH(rootCoord, (long) DEFAULT_FAILED);
+            return;
         }
-
-        inputDataRow.addRoot(resultMerge.get("rootCoordinate"));
-
-        statCounter.addMerge(inputDataRow.root,
-            MavenCoordinate.fromString(resultMerge.get("artifact"), "jar"),
-            inputDataRow.deps, Long.parseLong(resultMerge.get("mergeTime")),
-            new StatCounter.GraphStats(Integer.parseInt(resultMerge.get("nodes")),
-                Integer.parseInt(resultMerge.get("edges"))));
-
-        statCounter.addUCH(inputDataRow.root, Long.parseLong(resultMerge.get("uchTime")));
-
-        return inputDataRow;
+        final var row = resultMerge.get(0);
+        statCounter.addMerge(rootCoord, Long.parseLong(row.get("mergeTime")),
+            new StatCounter.GraphStats(Integer.parseInt(row.get("nodes")),
+                Integer.parseInt(row.get("edges"))));
+        statCounter.addUCH(rootCoord, Long.parseLong(row.get("uchTime")));
     }
 
-    private static void addCGPoolToStatCounter(final List<Map<String, String>> cgPool,
+    private static void addCGPoolToStatCounter(MavenCoordinate rootCoord,
+                                               final List<Map<String, String>> cgPool,
                                                final StatCounter statCounter) {
+        if (cgPool.isEmpty()) {
+            statCounter.addNewCGtoPool(rootCoord, DEFAULT_FAILED,
+                new StatCounter.GraphStats(DEFAULT_FAILED, DEFAULT_FAILED));
+            return;
+        }
         for (final var cg : cgPool) {
             statCounter.addNewCGtoPool(MavenCoordinate.fromString(cg.get("coordinate"), "jar"),
                 Long.parseLong(cg.get("isolatedRevisionTime")),

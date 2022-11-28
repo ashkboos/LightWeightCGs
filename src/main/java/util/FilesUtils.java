@@ -21,6 +21,7 @@ package util;
 import data.ResultCG;
 import eu.fasten.core.data.opal.MavenArtifactDownloader;
 import eu.fasten.core.data.opal.MavenCoordinate;
+import eu.fasten.core.data.opal.exceptions.MissingArtifactException;
 import eu.fasten.core.data.utils.DirectedGraphDeserializer;
 import eu.fasten.core.data.utils.DirectedGraphSerializer;
 import eu.fasten.core.maven.utils.MavenUtilities;
@@ -30,33 +31,66 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.jar.JarFile;
 import org.apache.commons.io.FileDeleteStrategy;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class FilesUtils {
     public static final String CG_JSON_FILE = "cg.json";
-
+    public static final MavenCoordinate JAVA_8_COORD =
+        new MavenCoordinate("java", "lang", "1.8.0", "jar");
     private static final Logger logger = LoggerFactory.getLogger(FilesUtils.class);
+    public static final String RT_JAR_PATH = "RtJar-1.8.0-221.jar";
 
     public static File[] getFile(final File opalDir, final String fileName) {
-        return opalDir.listFiles((dir, name) -> name.toLowerCase().equals(fileName));
+        return opalDir.listFiles((dir, name) -> name.equals(fileName));
     }
 
     public static void forceDelete(final File file) throws IOException {
         FileDeleteStrategy.FORCE.delete(file);
     }
 
-    public static File[] downloadToDir(final List<MavenCoordinate> mavenCoordinates)
+    public File[] downloadToDir(final List<MavenCoordinate> mavenCoordinates)
         throws IOException {
-        return download(mavenCoordinates).toArray(File[]::new);
+        return download(mavenCoordinates).stream().map(Pair::getValue)
+            .toArray(File[]::new);
     }
 
-    public static File download(final MavenCoordinate dep) {
-        return new MavenArtifactDownloader(dep).downloadArtifact(MavenUtilities.MAVEN_CENTRAL_REPO);
+    public static File download(final MavenCoordinate coord) {
+        if (coord.equals(JAVA_8_COORD)) {
+            return getRTJar();
+        }
+
+        final var tmpFolder = System.getProperty("java.io.tmpdir");
+        final var destPath =
+            tmpFolder + java.io.File.separator + coord.getCoordinate().replaceAll(":", "_") +
+                ".jar";
+        var coordinateFile = new File(destPath);
+        if (!coordinateFile.exists()) {
+            try {
+            var tmp =
+                new MavenArtifactDownloader(coord).downloadArtifact(
+                    MavenUtilities.MAVEN_CENTRAL_REPO);
+                coordinateFile = Files.move(tmp.toPath(), Path.of(destPath)).toFile();
+                if (tmp.exists()) {
+                    FilesUtils.forceDelete(tmp);
+                }
+            } catch (MissingArtifactException | IOException e) {
+                logger.warn("Could not move or delete file!");
+            }
+        }
+
+        return coordinateFile;
+    }
+
+    public static File getRTJar() {
+        return new File(RT_JAR_PATH);
     }
 
     public static void writeCGToFile(final String path, final ResultCG cg) {
@@ -92,35 +126,65 @@ public class FilesUtils {
         return getFile(opalDir, "log");
     }
 
-    public static File downloadToJar(final List<MavenCoordinate> depSet) {
-        final var toBeJared = download(depSet);
+    public static File extractJar(final File jarFile, final String destDirPath) {
+        final JarFile jar;
+        final File result = new File(destDirPath);
+        result.mkdir();
+        try {
+            jar = new JarFile(jarFile);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        jar.stream().forEach(jarEntry -> {
+            if (jarEntry.getName().endsWith(".jar")) {
+                try {
+                    java.io.File f =
+                        new java.io.File(destDirPath + java.io.File.separator + jarEntry.getName());
+                    if (jarEntry.isDirectory()) { // if its a directory, create it
+                        f.mkdir();
+                        return;
+                    }
+                    java.io.InputStream is =
+                        jar.getInputStream(jarEntry); // get the input stream
+                    java.io.FileOutputStream fos = new java.io.FileOutputStream(f);
+                    while (is.available() > 0) {  // write contents of 'is' to 'fos'
+                        fos.write(is.read());
+                    }
+                    fos.close();
+                    is.close();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
+        return result;
+    }
 
+    public static File jar(final List<File> files) {
         final File resultFile;
         try {
             resultFile = Files.createTempFile("fasten", ".jar").toFile();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        JarFileCreator.createJarArchive(resultFile, toBeJared.toArray(File[]::new));
+        JarFileCreator.createJarArchive(resultFile, files.toArray(File[]::new));
 
         return resultFile;
     }
 
-    private static List<File> download(final List<MavenCoordinate> depSet) {
-        final List<File> result = new ArrayList<>();
+    public static List<Pair<MavenCoordinate, File>> download(final List<MavenCoordinate> depSet) {
+        final List<Pair<MavenCoordinate, File>> result = new ArrayList<>();
 
         for (final var coord : depSet) {
-            File coordinateFile = null;
-            try {
-                coordinateFile = download(coord);
-            } catch (Exception e) {
-                logger.warn("File not found!");
-            }
+
+            final var coordinateFile = download(coord);
+
             if (coordinateFile == null) {
                 continue;
             }
-            result.add(coordinateFile);
+            result.add(Pair.of(coord, coordinateFile));
         }
+
         return result;
     }
 
@@ -169,9 +233,4 @@ public class FilesUtils {
         return String.join("\n", result);
     }
 
-    public static void forceDelete(File[] depsDir) throws IOException {
-        for (final var file : depsDir) {
-            forceDelete(file);
-        }
-    }
 }
