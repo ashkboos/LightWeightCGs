@@ -28,7 +28,9 @@ import eu.fasten.core.maven.utils.MavenUtilities;
 import eu.fasten.core.merge.CallGraphUtils;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,6 +39,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.jar.JarFile;
 import org.apache.commons.io.FileDeleteStrategy;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,7 +49,7 @@ public class FilesUtils {
     public static final MavenCoordinate JAVA_8_COORD =
         new MavenCoordinate("java", "lang", "1.8.0", "jar");
     private static final Logger logger = LoggerFactory.getLogger(FilesUtils.class);
-    public static final String RT_JAR_PATH = "RtJar-1.8.0-221.jar";
+    public static final String RT_JAR_NAME = "RtJar-1.8.0-221.jar";
 
     public static File[] getFile(final File opalDir, final String fileName) {
         return opalDir.listFiles((dir, name) -> name.equals(fileName));
@@ -89,8 +92,26 @@ public class FilesUtils {
         return coordinateFile;
     }
 
-    public static File getRTJar() {
-        return new File(RT_JAR_PATH);
+    public static File getFileFromResources(final String fileName) {
+        InputStream inputStream = FileUtils.class.getClassLoader().getResourceAsStream(fileName);
+        if (inputStream == null) {
+            throw new RuntimeException("File not found: " + fileName);
+        } else {
+            try {
+                File file = new File(fileName);
+                FileOutputStream outputStream = new FileOutputStream(file);
+                byte[] buffer = new byte[1024];
+                int length;
+                while ((length = inputStream.read(buffer)) > 0) {
+                    outputStream.write(buffer, 0, length);
+                }
+                outputStream.close();
+                inputStream.close();
+                return file;
+            } catch (IOException e){
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     public static void writeCGToFile(final String path, final ResultCG cg) {
@@ -233,4 +254,7 @@ public class FilesUtils {
         return String.join("\n", result);
     }
 
+    public static File getRTJar() {
+        return getFileFromResources(RT_JAR_NAME);
+    }
 }

@@ -53,7 +53,6 @@ public class CGEvaluator {
     private static final int iterations = 10;
 
     private static final Logger logger = LoggerFactory.getLogger(CGEvaluator.class);
-    public static final String ALG = "CHA";
     public static final boolean includeJava = false;
 
     public static void main(String[] args) {
@@ -136,9 +135,10 @@ public class CGEvaluator {
     }
 
     private static void printMemInfo() {
-        long heapSize = Runtime.getRuntime().totalMemory();
-        long heapMaxSize = Runtime.getRuntime().maxMemory();
-        long heapFreeSize = Runtime.getRuntime().freeMemory();
+        long heapSize = Runtime.getRuntime().totalMemory();//gave to jvm
+        long heapMaxSize = Runtime.getRuntime().maxMemory();//max that is configured
+        long heapFreeSize = Runtime.getRuntime().freeMemory();//diff between free and total and
+        // add the difference
         logger.info("heap size is: " + toMB(heapSize) + "mb");
         logger.info("max heap size is: " + toMB(heapMaxSize) + "mb");
         logger.info("free heap size is: " + toMB(heapFreeSize) + "mb");

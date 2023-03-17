@@ -75,7 +75,7 @@ public class GeneratorEvaluator {
         return result;
     }
 
-     public ResultCG  generateMeasureTimeAndConvert(StatCounter statCounter,
+     public ResultCG generateMeasureTimeAndConvert(StatCounter statCounter,
                                                   final List<MavenCoordinate> depSet,
                                                   final MavenCoordinate currentVP,
                                                   final String generator) {
@@ -88,7 +88,7 @@ public class GeneratorEvaluator {
             toMapOfLongAndUri(pcg.mapOfFullURIStrings(typeCoordMap)));
     }
 
-    private static Map<Long, String> toMapOfLongAndUri(
+    public static Map<Long, String> toMapOfLongAndUri(
         final BiMap<Long, String> integerStringBiMap) {
         final Long2ObjectOpenHashMap<String> result = new Long2ObjectOpenHashMap<>();
         for (final var node : integerStringBiMap.entrySet()) {
@@ -108,7 +108,7 @@ public class GeneratorEvaluator {
         logger.info("jar file in: {}", jarOfAll.getAbsolutePath());
         final var time = measureGenerationTime(jarOfAll, generator);
         final PartialJavaCallGraph pcg =
-            CGUtils.generatePCG(new File[] {jarOfAll}, currentVP, CGEvaluator.ALG,
+            CGUtils.generatePCG(new File[] {jarOfAll}, currentVP, CGUtils.ALG,
                 CallPreservationStrategy.INCLUDING_ALL_SUBTYPES, generator);
         statCounter.addGenerator(currentVP, time, pcg);
         try {
@@ -125,10 +125,10 @@ public class GeneratorEvaluator {
         logger.info("measuring time of {}", generator);
         if (generator.equals(Constants.opalGenerator)) {
             final var constructor = new OPALCallGraphConstructor();
-            executable = () -> constructor.construct(tempJar, CGAlgorithm.valueOf(CGEvaluator.ALG));
+            executable = () -> constructor.construct(tempJar, CGAlgorithm.valueOf(CGUtils.ALG));
         } else {
             executable = () -> CallGraphConstructor.generateCallGraph(path, Algorithm.valueOf(
-                CGEvaluator.ALG));
+                CGUtils.ALG));
         }
         return measureTime(executable, warmUp, iterations);
     }
@@ -136,13 +136,13 @@ public class GeneratorEvaluator {
     public static long measureTime(final Executable toRun, final int warmUp, final int iterations) {
         final var result = new ArrayList<Long>();
         for (int i = 0; i < warmUp + iterations; i++) {
-            if (i > warmUp) {
                 final long startTime = System.currentTimeMillis();
                 try {
                     toRun.execute();
                 } catch (Throwable e) {
                     throw new RuntimeException(e);
                 }
+            if (i > warmUp) {
                 result.add(System.currentTimeMillis() - startTime);
             }
         }

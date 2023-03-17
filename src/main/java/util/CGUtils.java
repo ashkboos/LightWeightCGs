@@ -42,6 +42,7 @@ import org.slf4j.LoggerFactory;
 
 public class CGUtils {
     private static final Logger logger = LoggerFactory.getLogger(CGUtils.class);
+    public static String ALG = "CHA";
 
     public static PartialJavaCallGraph generatePCG(final File[] depSet,
                                                    final MavenCoordinate mavenCoordinate,

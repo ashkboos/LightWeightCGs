@@ -15,7 +15,6 @@ import eu.fasten.core.data.opal.MavenCoordinate;
 import eu.fasten.core.data.opal.exceptions.MissingArtifactException;
 import eu.fasten.core.merge.CGMerger;
 import eu.fasten.core.merge.CallGraphUtils;
-import evaluation.CGEvaluator;
 import evaluation.GeneratorEvaluator;
 import evaluation.StatCounter;
 import it.unimi.dsi.fastutil.longs.LongLongPair;
@@ -124,9 +123,9 @@ public class CGDebugger {
         for (String uri : uris.split(",")) {
             System.out.println(uri + " :");
             System.out.println("defined methods: ");
-            System.out.println(ch.getDefinedMethods().get(uri));
+            System.out.println(ch.getDefinedType2Sig2Id().get(uri));
             System.out.println("abstract methods: ");
-            System.out.println(ch.getAbstractMethods().get(uri));
+            System.out.println(ch.getAbstractType2Sig2Id().get(uri));
         }
 
     }
@@ -155,7 +154,7 @@ public class CGDebugger {
         deps.parallelStream().forEach(dep -> {
             try {
                 final var file = FilesUtils.download(dep);
-                pcgs.add(CGUtils.generatePCG(new File[] {file}, dep, CGEvaluator.ALG,
+                pcgs.add(CGUtils.generatePCG(new File[] {file}, dep, CGUtils.ALG,
                     ONLY_STATIC_CALLSITES, generator));
             } catch (MissingArtifactException ignored) {
             }
@@ -182,7 +181,7 @@ public class CGDebugger {
 
         System.out.println("Generating ...");
         final var rcg =
-            CGUtils.generatePCG(new File[] {file}, coord, CGEvaluator.ALG, ONLY_STATIC_CALLSITES,
+            CGUtils.generatePCG(new File[] {file}, coord, CGUtils.ALG, ONLY_STATIC_CALLSITES,
                 generator);
         final var id = findId(uri, rcg);
         if (id == -1) {

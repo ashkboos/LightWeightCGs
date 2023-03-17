@@ -11,7 +11,6 @@ import eu.fasten.core.data.PartialJavaCallGraph;
 import eu.fasten.core.data.opal.MavenCoordinate;
 import eu.fasten.core.merge.CGMerger;
 import java.io.File;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -89,7 +88,7 @@ public class MergeEvaluator {
                                                     final String generator) {
         final var file = FilesUtils.download(coordinate);
         final var rcg =
-            CGUtils.generatePCG(new File[] {file}, coordinate, CGEvaluator.ALG,
+            CGUtils.generatePCG(new File[] {file}, coordinate, CGUtils.ALG,
                 ONLY_STATIC_CALLSITES, generator, true);
 
         statCounter.addNewCGtoPool(coordinate,
