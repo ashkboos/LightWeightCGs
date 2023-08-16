@@ -37,7 +37,7 @@ public class LegacyCGEvaluator {
             logger.info("Number of redundant packages is less than threshold #{}", threshold);
 
         } else {
-            runOPALandMerge(resolvedData, statCounter);
+            runOPALandMerge(resolvedData, statCounter, outPath);
 
             statCounter.concludeMerge(outPath);
             statCounter.concludeGenerator(outPath);
@@ -48,7 +48,7 @@ public class LegacyCGEvaluator {
 
     private static void runOPALandMerge(
         final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
-        final StatCounter statCounter) {
+        final StatCounter statCounter, final String path) {
         final Map<MavenCoordinate, Set<MavenCoordinate>> remainedDependents =
             getDependents(resolvedData);
         final Map<MavenCoordinate, PartialJavaCallGraph> cgPool = new HashMap<>();
@@ -58,7 +58,7 @@ public class LegacyCGEvaluator {
         for (final var row : resolvedData.entrySet()) {
             final var toMerge = row.getKey();
             final ResultCG merge =
-                new MergeEvaluator(1, 2, false).createCGPoolAndMergeDepSet(resolvedData.get(toMerge),
+                new MergeEvaluator(1, 2, false, path).createCGPoolAndMergeDepSet(resolvedData.get(toMerge),
                     statCounter, cgPool,
                     Constants.opalGenerator);
             pb.step();

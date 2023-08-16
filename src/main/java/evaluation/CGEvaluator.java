@@ -46,6 +46,7 @@ import org.slf4j.LoggerFactory;
 import util.CSVUtils;
 import util.FilesUtils;
 import util.InputDataUtils;
+import util.StatCounterDeserializer;
 
 public class CGEvaluator {
 
@@ -56,7 +57,7 @@ public class CGEvaluator {
     public static final boolean includeJava = false;
 
     public static void main(String[] args) {
-//        configLogs();
+        configLogs();
         printMemInfo();
         switch (args[0]) {
             case "--inputDemography":
@@ -76,7 +77,8 @@ public class CGEvaluator {
                 break;
             case "--merge":
                 evaluateAndWriteToFile(args[1], args[2],
-                    new MergeEvaluator(warmUp, iterations, includeJava)::evaluateMerge);
+                    (outPath, coords) -> new MergeEvaluator(warmUp, iterations, includeJava,
+                        args[2]).evaluateMerge(coords));
                 break;
 
             case "--analyzeOutDir":

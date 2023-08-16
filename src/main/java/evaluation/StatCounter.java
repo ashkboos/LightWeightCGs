@@ -18,6 +18,7 @@
 
 package evaluation;
 
+import data.MergeResultStats;
 import eu.fasten.core.data.DirectedGraph;
 import eu.fasten.core.data.JavaType;
 import eu.fasten.core.data.PartialJavaCallGraph;
@@ -45,7 +46,6 @@ public class StatCounter {
 
     private static final Logger logger = LoggerFactory.getLogger(StatCounter.class);
 
-
     public final Map<MavenCoordinate, GeneratorStats> generatorStats;
 
     private final Map<MavenCoordinate, CGPoolStats> cgPoolStats;
@@ -57,7 +57,6 @@ public class StatCounter {
     private final Map<MavenCoordinate, Set<SourceStats>> accuracy;
 
     private final Map<String, Pair<String, String>> logs;
-
 
     public StatCounter() {
         UCHTime = new ConcurrentHashMap<>();
@@ -84,10 +83,6 @@ public class StatCounter {
             mergeLoString = FilesUtils.readFromLast(mergeLog[0], 20);
         }
         this.logs.put(coord, ImmutablePair.of(opalLogString, mergeLoString));
-    }
-
-    public void addMerge(MavenCoordinate rootCoord, long mergeTime, GraphStats graphStats) {
-        addMerge(rootCoord, Collections.emptyList(), mergeTime, graphStats);
     }
 
     public static class SourceStats {
@@ -138,14 +133,15 @@ public class StatCounter {
         public final List<MavenCoordinate> deps;
         public final Long time;
         public final GraphStats mergeStats;
+        public final double mergerSize;
 
-        public MergeTimer(final MavenCoordinate artifact,
-                          final List<MavenCoordinate> deps, final Long time,
-                          final GraphStats mergeStats) {
+        public MergeTimer(final MavenCoordinate artifact, final Long time,
+                          final GraphStats mergeStats, final double mergerSize) {
             this.artifact = artifact;
-            this.deps = deps;
+            this.deps = Collections.emptyList();
             this.time = time;
             this.mergeStats = mergeStats;
+            this.mergerSize = mergerSize;
         }
     }
 
@@ -167,7 +163,14 @@ public class StatCounter {
         public GraphStats(final PartialJavaCallGraph rcg) {
             if (rcg != null) {
                 this.nodes = rcg.getNodeCount();
-                this.edges = rcg.getGraph().getCallSites().size();
+                if (rcg.getGraph() != null && rcg.getGraph().getCallSites() != null && !rcg.getGraph().getCallSites().isEmpty()) {
+                    this.edges = rcg.getGraph().size();
+                } else {
+                    this.edges =
+                        rcg.sourceCallSites.sourceId2SourceInf.values().stream()
+                            .map(sourceMethodInf -> sourceMethodInf.callSites.size())
+                            .mapToInt(Integer::intValue).sum();
+                }
             } else {
                 this.nodes = 0;
                 this.edges = 0;
@@ -215,13 +218,15 @@ public class StatCounter {
         final private Long time;
         private Integer occurrence;
         final private GraphStats cgPoolGraphStats;
+        final private Double cgSize;
 
         public CGPoolStats(final Long time, final Integer occurrence,
-                           final GraphStats cgPoolGraphStats) {
+                           final GraphStats cgPoolGraphStats, final Double cgSize) {
 
             this.time = time;
             this.occurrence = occurrence;
             this.cgPoolGraphStats = cgPoolGraphStats;
+            this.cgSize = cgSize;
         }
 
         public void addOccurrence() {
@@ -230,10 +235,10 @@ public class StatCounter {
     }
 
     public void addNewCGtoPool(final MavenCoordinate coord, final long time,
-                               final GraphStats rcg) {
+                               final GraphStats rcg, final double cgSize) {
 
         cgPoolStats.put(coord,
-            new CGPoolStats(time, 1, rcg)
+            new CGPoolStats(time, 1, rcg, cgSize)
         );
     }
 
@@ -264,10 +269,9 @@ public class StatCounter {
     }
 
     public void addMerge(final MavenCoordinate rootCoord,
-                         final List<MavenCoordinate> deps,
-                         final long time, final GraphStats cgStats) {
+                         final long time, final GraphStats cgStats, final double mergerSize) {
         final var merge = mergeStats.getOrDefault(rootCoord, new ArrayList<>());
-        merge.add(new MergeTimer(rootCoord, deps, time, cgStats));
+        merge.add(new MergeTimer(rootCoord, time, cgStats, mergerSize));
         mergeStats.put(rootCoord, merge);
     }
 
@@ -275,6 +279,13 @@ public class StatCounter {
 
         CSVUtils.writeToCSV(buildCGPoolCSV(), resultPath + "/CGPool.csv");
         CSVUtils.writeToCSV(buildMergeCSV(), resultPath + "/Merge.csv");
+    }
+
+    public void concludeAll(final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
+                            final String resultPath) {
+
+        CSVUtils.writeToCSV(buildOverallCsv(resolvedData), resultPath + "/Overall.csv");
+        CSVUtils.writeToCSV(buildAccuracyCsv(), resultPath + "/accuracy.csv");
     }
 
     public void concludeGenerator(final String resultPath) {
@@ -298,7 +309,6 @@ public class StatCounter {
         return dataLines;
     }
 
-
     private String[] getLogContent(int counter, Map.Entry<String, Pair<String, String>> coorLogs) {
         return new String[] {
             /* number */ String.valueOf(counter),
@@ -308,12 +318,6 @@ public class StatCounter {
         };
     }
 
-    public void concludeAll(final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
-                            final String resultPath) {
-
-        CSVUtils.writeToCSV(buildOverallCsv(resolvedData), resultPath + "/Overall.csv");
-        CSVUtils.writeToCSV(buildAccuracyCsv(), resultPath + "/accuracy.csv");
-    }
 
 
     private List<String[]> buildAccuracyCsv() {
@@ -329,10 +333,9 @@ public class StatCounter {
         return dataLines;
     }
 
-
     private List<String[]> getContentOfAcc(int counter,
-        final MavenCoordinate coord,
-        final Set<SourceStats> sourceStats) {
+                                           final MavenCoordinate coord,
+                                           final Set<SourceStats> sourceStats) {
         List<String[]> result = new ArrayList<>();
         for (final var sourceStat : sourceStats) {
             result.add(new String[] {
@@ -350,7 +353,6 @@ public class StatCounter {
         return result;
     }
 
-
     private List<String[]> buildGeneratorCSV(
         final Map<MavenCoordinate, GeneratorStats> generatorStats) {
 
@@ -367,7 +369,6 @@ public class StatCounter {
         return dataLines;
     }
 
-
     private String[] getContentOfGenerator(
         final int counter, MavenCoordinate coord,
         final GeneratorStats generatorStats) {
@@ -379,7 +380,6 @@ public class StatCounter {
             /* edges */ String.valueOf(generatorStats.graphStats.edges),
         };
     }
-
 
     private List<String[]> buildCGPoolCSV() {
         final List<String[]> dataLines = new ArrayList<>();
@@ -394,7 +394,6 @@ public class StatCounter {
         }
         return dataLines;
     }
-
 
     private List<String[]> buildMergeCSV() {
 
@@ -412,7 +411,6 @@ public class StatCounter {
         }
         return dataLines;
     }
-
 
     private List<String[]> buildOverallCsv(
         final Map<MavenCoordinate, List<MavenCoordinate>> depTree) {
@@ -440,32 +438,34 @@ public class StatCounter {
             /* occurrence */ String.valueOf(occurrence),
             /* isolatedRevisionTime */ String.valueOf(cgPoolStats.time),
             /* nodes */ String.valueOf(cgPoolStats.cgPoolGraphStats.nodes),
-            /* edges */ String.valueOf(cgPoolStats.cgPoolGraphStats.edges)
+            /* edges */ String.valueOf(cgPoolStats.cgPoolGraphStats.edges),
+            /* cgSize */ String.valueOf(cgPoolStats.cgSize.longValue())
         };
     }
-
 
     private String[] getOverallContent(final Map<MavenCoordinate, List<MavenCoordinate>> depTree,
                                        final int counter,
                                        final MavenCoordinate coord,
                                        final GeneratorStats generatorStats) {
-        final var mergePool = calculateTotalMergeTime(depTree, coord);
+        final var mergeResultStats = calculateTotalMergeTime(depTree, coord);
         return new String[] {
             /* number */ String.valueOf(counter),
             /* coordinate */ coord.getCoordinate(),
             /* opalTime */ generatorStats == null ? "" : String.valueOf(generatorStats.time),
-            /* totalMergeTime */ String.valueOf(mergePool.getLeft() + mergePool.getRight()),
-            /* cgPool */ String.valueOf(mergePool.getRight()),
-            /* mergeTime */ String.valueOf(mergePool.getLeft()),
+            /* cgPool */ String.valueOf(mergeResultStats.cgPoolTotalTime),
+            /* mergeTime */ String.valueOf(mergeResultStats.mergeTime),
             /* UCHTime */ String.valueOf(UCHTime.get(coord)),
             /* opalNodes */ generatorStats == null ? "0" :
             String.valueOf(generatorStats.graphStats.nodes),
             /* opalEdges */ generatorStats == null ? "0" :
             String.valueOf(generatorStats.graphStats.edges),
             /* mergeNodes */ calculateNumberOf("nodes", coord),
-            /* mergeEdges */ calculateNumberOf("edges", coord)};
+            /* mergeEdges */ calculateNumberOf("edges", coord),
+            /* appPCGTime */ String.valueOf(mergeResultStats.appPCGTime),
+            /* cgSize */ String.valueOf(mergeResultStats.cgSize),
+            /* mergerSize */ String.valueOf(mergeResultStats.mergerSize)
+        };
     }
-
 
     private String calculateNumberOf(final String nodesOrEdges,
                                      final MavenCoordinate coord) {
@@ -492,30 +492,65 @@ public class StatCounter {
             .collect(Collectors.joining(";"));
     }
 
-
-    private Pair<Long, Long> calculateTotalMergeTime(
+    private MergeResultStats calculateTotalMergeTime(
         final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
         final MavenCoordinate coord) {
 
         long cgPoolTotalTime = 0;
-        long mergeTotalTime = 0;
+        long mergeTime = 0;
+        double cgSize = 0;
+        double mergerSize = 0;
 
         try {
-            for (final var depCoord : resolvedData.get(coord)) {
-                if (this.cgPoolStats.get(depCoord) != null) {
-                    if (this.cgPoolStats.get(depCoord).time != null) {
-                        cgPoolTotalTime = cgPoolTotalTime + cgPoolStats.get(depCoord).time;
-                    }
-                }
+            cgPoolTotalTime = calcDepGeneration(resolvedData, coord);
+            cgSize = calcDepCGSize(resolvedData, coord);
+            for (final var merge : this.mergeStats.getOrDefault(coord, Collections.emptyList())) {
+                mergeTime = mergeTime + merge.time;
             }
             for (final var merge : this.mergeStats.getOrDefault(coord, Collections.emptyList())) {
-                mergeTotalTime = mergeTotalTime + merge.time;
+                mergerSize = mergerSize + merge.mergerSize;
             }
         } catch (Exception e) {
             logger.error("Exception occurred", e);
         }
-        return ImmutablePair.of(mergeTotalTime, cgPoolTotalTime);
+        return new MergeResultStats(cgPoolTotalTime, mergeTime, getAppPCGTime(coord), cgSize, mergerSize);
 
+    }
+
+    private long getAppPCGTime(final MavenCoordinate coord) {
+        long appPCGTime = 0;
+        if (this.cgPoolStats.get(coord) != null) {
+            if (this.cgPoolStats.get(coord).time != null) {
+                appPCGTime = this.cgPoolStats.get(coord).time;
+            }
+        }
+        return appPCGTime;
+    }
+
+    private double calcDepCGSize(final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
+                               final MavenCoordinate coord) {
+        double cgPoolTotalTime = 0;
+        for (final var depCoord : resolvedData.get(coord)) {
+            if (this.cgPoolStats.get(depCoord) != null) {
+                if (this.cgPoolStats.get(depCoord).cgSize != null) {
+                    cgPoolTotalTime = cgPoolTotalTime + cgPoolStats.get(depCoord).cgSize;
+                }
+            }
+        }
+        return cgPoolTotalTime;
+    }
+
+    private long calcDepGeneration(final Map<MavenCoordinate, List<MavenCoordinate>> resolvedData,
+                                   final MavenCoordinate coord) {
+        long cgPoolTotalTime = 0;
+        for (final var depCoord : resolvedData.get(coord)) {
+            if (this.cgPoolStats.get(depCoord) != null) {
+                if (this.cgPoolStats.get(depCoord).time != null) {
+                    cgPoolTotalTime = cgPoolTotalTime + cgPoolStats.get(depCoord).time;
+                }
+            }
+        }
+        return cgPoolTotalTime;
     }
 
 }

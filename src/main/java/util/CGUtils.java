@@ -87,8 +87,7 @@ public class CGUtils {
             WalaResultAnalyzer.wrap(callgraph, pcg, callPreservationStrategy);
 
             if (partial) {
-                pcg.setSourceCallSites();
-                pcg.setGraph(new JavaGraph());
+                pcg.setSourceCallSitesToOptimizeMerge();
             }
 
             return pcg;
@@ -110,7 +109,7 @@ public class CGUtils {
                 partialCallGraph.graph);
 
         if (partial) {
-            pcg.setSourceCallSites();
+            pcg.setSourceCallSitesToOptimizeMerge();
             pcg.setGraph(new JavaGraph());
         }
 

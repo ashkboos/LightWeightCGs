@@ -83,6 +83,7 @@ public class InputDataUtils {
                 .asList(org.jboss.shrinkwrap.resolver.api.maven.coordinate.MavenCoordinate.class);
         } catch (Exception e) {
             logger.warn("Exception occurred while resolving {}, {}", row, e);
+            System.out.println(e);
         }
         return result;
     }

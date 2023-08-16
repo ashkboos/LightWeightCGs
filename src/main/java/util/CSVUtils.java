@@ -29,6 +29,7 @@ public class CSVUtils {
             data.stream()
                 .map(CSVUtils::convertToCSV)
                 .forEach(pw::println);
+            pw.flush();
         } catch (FileNotFoundException e) {
             throw new RuntimeException(e);
         }
@@ -140,8 +141,9 @@ public class CSVUtils {
     public static String[] getHeaderOf( final String CSVName) {
         if (CSVName.equals("Overall")) {
             return new String[] {"number", "coordinate", "opalTime",
-                "totalMergeTime", "cgPool", "mergeTime", "UCHTime",
-                "opalNodes", "opalEdges", "mergeNodes", "mergeEdges"};
+                "cgPool", "mergeTime", "UCHTime",
+                "opalNodes", "opalEdges", "mergeNodes", "mergeEdges", "appPCGTime",
+                "cgSize", "mergerSize"};
 
         } else if (CSVName.equals("Generator")) {
             return new String[] {"number", "coordinate", "time",
@@ -149,7 +151,7 @@ public class CSVUtils {
 
         } else if (CSVName.equals("CGPool")) {
             return new String[] {"number", "coordinate", "occurrence", "isolatedRevisionTime",
-                "nodes", "edges"};
+                "nodes", "edges", "cgSize"};
 
         } else if (CSVName.equals("Accuracy")) {
             return new String[] {"number", "coordinate", "source", "precision", "recall",
@@ -161,7 +163,8 @@ public class CSVUtils {
 
         //Merge
         return new String[] {"number", "rootCoordinate", "artifact", "mergeTime", "uchTime",
-            "nodes", "edges"};
+            "nodes", "edges", "mergerSize"};
+
     }
 
     
@@ -174,7 +177,9 @@ public class CSVUtils {
             /* mergeTime */ String.valueOf(merge.time),
             /* uchTime */ String.valueOf(uchTime),
             /* nodes */ String.valueOf(merge.mergeStats.nodes),
-            /* edges */ String.valueOf(merge.mergeStats.edges)};
+            /* edges */ String.valueOf(merge.mergeStats.edges),
+            /* mergerSize */ String.valueOf((long) merge.mergerSize)
+        };
     }
 
     

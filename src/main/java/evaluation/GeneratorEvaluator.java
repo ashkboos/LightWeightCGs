@@ -136,17 +136,18 @@ public class GeneratorEvaluator {
     public static long measureTime(final Executable toRun, final int warmUp, final int iterations) {
         final var result = new ArrayList<Long>();
         for (int i = 0; i < warmUp + iterations; i++) {
-                final long startTime = System.currentTimeMillis();
+                final long startTime = System.nanoTime();
                 try {
                     toRun.execute();
                 } catch (Throwable e) {
                     throw new RuntimeException(e);
                 }
             if (i > warmUp) {
-                result.add(System.currentTimeMillis() - startTime);
+                result.add(System.nanoTime() - startTime);
             }
         }
-        return (long) result.stream().mapToDouble(a -> a).average().orElse(0);
+        final var nano = (long) result.stream().mapToDouble(a -> a).average().orElse(0);
+        return (long) (nano/1_000_000.0);
     }
 
 }
